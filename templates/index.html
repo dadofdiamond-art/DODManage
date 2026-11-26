@@ -204,10 +204,10 @@
   <script>
     window.DOD_CONFIG = {
       maxImages: {{ max_images }},
-    maxVideos: { { max_videos } },
-    maxVideoMb: { { max_video_mb } },
-    stoneTypes: { { stone_types | tojson } },
-    stoneShapes: { { stone_shapes | tojson } }
+      maxVideos: {{ max_videos }},
+      maxVideoMb: {{ max_video_mb }},
+      stoneTypes: {{ stone_types | tojson }},
+      stoneShapes: {{ stone_shapes | tojson }}
     };
   </script>
   <script src="{{ url_for('static', filename='js/order_form.js') }}"></script>

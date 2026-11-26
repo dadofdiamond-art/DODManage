@@ -36,8 +36,8 @@ A local-first Flask + SQLite web application for managing custom jewelry orders,
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ORDER-project.git
-cd ORDER-project
+git clone https://github.com/dadofdiamond-art/DODManage.git
+cd DODManage
 ```
 
 ### 2. Create a virtual environment and install dependencies
