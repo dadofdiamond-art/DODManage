@@ -246,7 +246,7 @@ def test_create_order_ten_images_and_two_videos_multipage_pdf(app_client, monkey
     assert "vip@secret.example" not in html
     assert "999 Confidential Villa" not in html
     assert "data:image/png;base64," in html  # QR codes + embedded image previews
-    assert "<td>24</td>" in html  # Optional diamond quantity rendered when provided
+    assert "<td><strong>24</strong></td>" in html  # Optional diamond quantity rendered when provided
 
     pdf_path = os.path.join(pdf_dir, "DOD10IMG2VID_job_sheet.pdf")
     assert os.path.isfile(pdf_path)

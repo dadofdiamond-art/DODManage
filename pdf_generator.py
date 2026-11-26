@@ -135,7 +135,7 @@ def generate_order_pdf(
     target_dir = output_dir or os.environ.get("DOD_PDF_DIR", DEFAULT_PDF_DIR)
     os.makedirs(target_dir, exist_ok=True)
     safe_order_id = "".join(c for c in workshop_order["order_id"] if c.isalnum() or c in ("-", "_"))
-    pdf_path = os.path.join(target_dir, f"{safe_order_id}_job_sheet.pdf")
+    pdf_path = os.path.join(target_dir, f"{safe_order_id}DOD.pdf")
 
     html_content = render_workshop_html(workshop_order)
 

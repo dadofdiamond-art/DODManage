@@ -117,6 +117,9 @@
       border: 2.5px solid #3F070C;
       margin-top: 10px;
       table-layout: fixed;
+    }
+
+    .extra-table tr {
       break-inside: avoid;
     }
 
@@ -144,22 +147,69 @@
       background: #ffffff;
     }
 
+    /* Additional Images sizing & card layout */
     .extra-images-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-start;
-      align-items: center;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
     }
 
-    .extra-images-grid img {
-      height: 120px;
-      width: auto;
-      object-fit: contain;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 4px;
+    .extra-image-card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      padding: 6px;
       background: #ffffff;
-      padding: 3px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .extra-image-box {
+      width: 100%;
+      height: 350px;
+      background: #f9fafb;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+    }
+
+    .extra-image-box img {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .extra-image-caption {
+      margin-top: 4px;
+      font-size: 14px;
+      color: #6b7280;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .extra-image-link {
+      margin-top: 2px;
+      font-size: 20px;
+      color: #3F070C;
+      word-break: break-all;
+      text-align: center;
+    }
+
+    .extra-image-link a {
+      color: #3F070C;
+      text-decoration: underline;
     }
   </style>
 </head>
@@ -209,7 +259,7 @@
 
       <!-- Row 4: Party / Customer Name -->
       <tr>
-        <td class="col-label">Party Name:</td>
+        <td class="col-label">Customer Name:</td>
         <td class="col-value" colspan="2">{{ customer_name }}</td>
       </tr>
 
@@ -297,9 +347,16 @@
         <td style="text-align: left; background: #f9fafb;">
           <div class="extra-images-grid">
             {% for img in images[1:] %}
-            <div style="text-align: center;">
-              <img src="{{ img.src }}" alt="Ref #{{ img.index }}" />
-              <div style="font-size: 20px; color: #6b7280; margin-top: 2px;">Ref #{{ img.index }}</div>
+            <div class="extra-image-card">
+              <div class="extra-image-box">
+                <img src="{{ img.src }}" alt="Ref #{{ img.index }}" />
+              </div>
+              <div class="extra-image-caption">Ref #{{ img.index }} — {{ img.filename }}</div>
+              {% if img.drive_view_link %}
+              <div class="extra-image-link">
+                <a href="{{ img.drive_view_link }}">{{ img.drive_view_link }}</a>
+              </div>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
