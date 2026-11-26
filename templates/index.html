@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dad Of Diamond — New Order &amp; Workshop Sheet</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-mark">DOD</div>
+        <div>
+          <div class="brand-title">Dad Of Diamond</div>
+          <div class="brand-sub">Order Entry &amp; Karigar Job Sheet System</div>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="{{ url_for('index') }}" class="nav-link active">New Order</a>
+        <a href="{{ url_for('orders_page') }}" class="nav-link">Orders History</a>
+        {% if drive_status.configured %}
+        <span class="status-pill connected" title="Google Drive connected ({{ drive_status.mode }})">Drive Connected</span>
+        {% else %}
+        <span class="status-pill local" title="{{ drive_status.message }}">Local Storage Mode</span>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <h1>Create Production Order</h1>
+        <p>Customer PII is stored securely in your local database and excluded from workshop PDF job sheets.</p>
+      </div>
+    </div>
+
+    <div id="formAlert" class="alert hidden"></div>
+
+    <form id="orderForm" novalidate>
+      <!-- Section 1: Order & Customer Details -->
+      <section class="card">
+        <h2 class="card-title">
+          1. Order &amp; Customer Details
+          <span class="badge-note">Stored Locally Only (Excluded from PDF)</span>
+        </h2>
+        <div class="grid-3">
+          <div class="field">
+            <label for="order_id">Order ID <span class="req">*</span></label>
+            <input
+              type="text"
+              id="order_id"
+              name="order_id"
+              maxlength="15"
+              pattern="[A-Za-z0-9]{1,15}"
+              placeholder="e.g. DOD2026001"
+              required
+              autocomplete="off"
+            />
+            <span id="orderIdStatus" class="hint">Alphanumeric, max 15 characters.</span>
+          </div>
+
+          <div class="field">
+            <label for="dispatch_date">Dispatch Date</label>
+            <input type="date" id="dispatch_date" name="dispatch_date" />
+          </div>
+
+          <div class="field">
+            <label for="customer_name">Customer Name <span class="req">*</span></label>
+            <input type="text" id="customer_name" name="customer_name" placeholder="Full customer name" required />
+          </div>
+
+          <div class="field">
+            <label for="mobile_number">Mobile Number <span class="hint">(Optional)</span></label>
+            <input type="tel" id="mobile_number" name="mobile_number" placeholder="+1 / +91 ..." />
+          </div>
+
+          <div class="field">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="customer@example.com" />
+          </div>
+
+          <div class="field span-2">
+            <label for="living_address">Living / Shipping Address</label>
+            <input type="text" id="living_address" name="living_address" placeholder="Street, City, State, Postal Code, Country" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Jewelry Specifications -->
+      <section class="card">
+        <h2 class="card-title">
+          2. Jewelry Specifications
+          <span class="badge-note">Printed on Workshop PDF</span>
+        </h2>
+        <div class="grid-3">
+          <div class="field">
+            <label for="product_type">Product Type <span class="req">*</span></label>
+            <select id="product_type" name="product_type" required>
+              {% for ptype in product_types %}
+              <option value="{{ ptype }}">{{ ptype }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="product_sku">Product SKU <span class="req">*</span></label>
+            <input type="text" id="product_sku" name="product_sku" placeholder="e.g. DOD-RG-402" required />
+          </div>
+
+          <div class="field">
+            <label for="quantity">Quantity <span class="req">*</span></label>
+            <input type="number" id="quantity" name="quantity" min="1" value="1" required />
+          </div>
+
+          <div class="field">
+            <label for="metal_option_select">Metal Option <span class="req">*</span></label>
+            <select id="metal_option_select" required>
+              {% for metal in metal_options %}
+              <option value="{{ metal }}">{{ metal }}</option>
+              {% endfor %}
+            </select>
+            <input
+              type="text"
+              id="custom_metal_option"
+              class="hidden"
+              placeholder="Specify custom metal (e.g. 22K Gold, Titanium)"
+            />
+            <input type="hidden" id="metal_option" name="metal_option" />
+          </div>
+
+          <div class="field">
+            <label for="metal_tone">Metal Tone <span class="req">*</span></label>
+            <select id="metal_tone" name="metal_tone" required>
+              {% for tone in metal_tones %}
+              <option value="{{ tone }}">{{ tone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="size_closure_select">Size / Closure <span class="req">*</span></label>
+            <select id="size_closure_select" required></select>
+            <input
+              type="text"
+              id="custom_size_closure"
+              class="hidden"
+              placeholder="Specify custom size / bail / closure"
+            />
+            <input type="hidden" id="size_or_closure" name="size_or_closure" />
+          </div>
+
+          <div class="field span-2">
+            <label for="engraving">Engraving Text <span class="hint">(Highlighted callout on PDF if provided)</span></label>
+            <input type="text" id="engraving" name="engraving" placeholder="e.g. Forever &amp; Always ♥ 25.11.2026" />
+          </div>
+
+          <div class="field span-2">
+            <label for="special_requirements">Special Requirements / CAD Notes</label>
+            <textarea
+              id="special_requirements"
+              name="special_requirements"
+              rows="3"
+              placeholder="Prong style, band width, gallery height, comfort fit, rush instructions..."
+            ></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Multi-Stone Details -->
+      <section class="card">
+        <h2 class="card-title">
+          3. Stone Details
+          <button type="button" id="addStoneBtn" class="btn btn-outline">+ Add Another Stone</button>
+        </h2>
+        <div id="stonesContainer"></div>
+        <p id="noStonesHint" class="hint">No stones added yet. Click "+ Add Another Stone" to log center, halo, or side stones.</p>
+      </section>
+
+      <!-- Section 4: Reference Media -->
+      <section class="card">
+        <h2 class="card-title">
+          4. Reference Images &amp; Videos
+          <span class="badge-note">Max {{ max_images }} Images &bull; Max {{ max_videos }} Videos</span>
+        </h2>
+
+        <div class="grid-2">
+          <div>
+            <label>Reference Images (.jpg, .jpeg, .png, .webp — Max {{ max_images }})</label>
+            <div id="imageDropzone" class="dropzone" tabindex="0">
+              <div class="dropzone-title">Drop images here or click to browse</div>
+              <div class="dropzone-sub" id="imageCountText">0 / {{ max_images }} images selected</div>
+              <input
+                type="file"
+                id="imageInput"
+                accept=".jpg,.jpeg,.png,.webp"
+                multiple
+                class="hidden"
+              />
+            </div>
+            <div id="imagePreviewGrid" class="preview-grid"></div>
+          </div>
+
+          <div>
+            <label>Reference Videos (.mp4, .mov — Max {{ max_videos }}, &le; {{ max_video_mb }} MB each)</label>
+            <div id="videoDropzone" class="dropzone" tabindex="0">
+              <div class="dropzone-title">Drop videos here or click to browse</div>
+              <div class="dropzone-sub" id="videoCountText">0 / {{ max_videos }} videos selected</div>
+              <input
+                type="file"
+                id="videoInput"
+                accept=".mp4,.mov"
+                multiple
+                class="hidden"
+              />
+            </div>
+            <div id="videoPreviewList" class="video-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="button" id="resetFormBtn" class="btn btn-outline">Clear Form</button>
+        <button type="submit" id="submitBtn" class="btn btn-primary">Save Order &amp; Generate PDF</button>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    window.DOD_CONFIG = {
+      maxImages: {{ max_images }},
+      maxVideos: {{ max_videos }},
+      maxVideoMb: {{ max_video_mb }},
+      stoneTypes: {{ stone_types | tojson }},
+      stoneShapes: {{ stone_shapes | tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/order_form.js') }}"></script>
+</body>
+</html>

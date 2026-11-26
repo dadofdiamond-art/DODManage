@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dad Of Diamond — Orders History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-mark">DOD</div>
+        <div>
+          <div class="brand-title">Dad Of Diamond</div>
+          <div class="brand-sub">Order Entry &amp; Karigar Job Sheet System</div>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="{{ url_for('index') }}" class="nav-link">New Order</a>
+        <a href="{{ url_for('orders_page') }}" class="nav-link active">Orders History</a>
+        {% if drive_status.configured %}
+        <span class="status-pill connected">Drive Connected</span>
+        {% else %}
+        <span class="status-pill local">Local Storage Mode</span>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <h1>Orders History &amp; Lookup</h1>
+        <p>Search stored orders by Order ID, Product SKU, or Customer Name. View full local details or re-download workshop PDFs.</p>
+      </div>
+      <a href="{{ url_for('index') }}" class="btn btn-primary">+ Create New Order</a>
+    </div>
+
+    <div id="ordersAlert" class="alert hidden"></div>
+
+    <section class="card">
+      <div class="search-bar">
+        <input
+          type="text"
+          id="searchInput"
+          value="{{ search_query }}"
+          placeholder="Search by Order ID, SKU, or Customer Name..."
+          autocomplete="off"
+        />
+        <button type="button" id="searchBtn" class="btn btn-primary">Search</button>
+        <button type="button" id="clearSearchBtn" class="btn btn-outline">Reset</button>
+        <button type="button" id="deleteSelectedBtn" class="btn btn-danger hidden">Delete Selected</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 36px;"><input type="checkbox" id="selectAllOrders" title="Select all" /></th>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Product &amp; SKU</th>
+              <th>Metal &amp; Size</th>
+              <th>Dispatch Date</th>
+              <th>Media</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTableBody">
+            {% for order in orders %}
+            <tr>
+              <td>
+                <input
+                  type="checkbox"
+                  class="order-select-cb"
+                  value="{{ order.order_id }}"
+                  aria-label="Select {{ order.order_id }}"
+                />
+              </td>
+              <td><span class="order-id-pill">{{ order.order_id }}</span></td>
+              <td>
+                <strong>{{ order.customer_name }}</strong><br />
+                <span class="hint">{{ order.mobile_number or "No mobile" }}</span>
+              </td>
+              <td>
+                <strong>{{ order.product_sku }}</strong><br />
+                <span class="hint">{{ order.product_type }} (Qty: {{ order.quantity }})</span>
+              </td>
+              <td>
+                {{ order.metal_option }} ({{ order.metal_tone }})<br />
+                <span class="hint">{{ order.size_or_closure }}</span>
+              </td>
+              <td>{{ order.dispatch_date or "—" }}</td>
+              <td>
+                <span>{{ order.image_count }} img</span> &bull;
+                <span>{{ order.video_count }} vid</span>
+              </td>
+              <td>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="btn btn-outline view-order-btn"
+                    data-order-id="{{ order.order_id }}"
+                  >
+                    Details
+                  </button>
+                  <a
+                    href="{{ url_for('download_order_pdf', order_id=order.order_id) }}"
+                    class="btn btn-primary"
+                  >
+                    PDF
+                  </a>
+                  <button
+                    type="button"
+                    class="btn btn-danger delete-order-btn"
+                    data-order-id="{{ order.order_id }}"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 28px; color: #6b7280;">
+                No orders found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="orderModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 id="modalTitle">Order Details</h2>
+        <button type="button" id="closeModalBtn" class="btn btn-outline">Close</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/orders_history.js') }}"></script>
+</body>
+</html>
