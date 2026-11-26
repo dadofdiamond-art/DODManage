@@ -8,6 +8,12 @@ credentials.json.json
 service_account.json
 token.json
 orders.db
+orders.db-journal
 uploads/
 generated_pdfs/
 backups/
+*.db-wal
+*.db-shm
+.DS_Store
+Thumbs.db
+*.log

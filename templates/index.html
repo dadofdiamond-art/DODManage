@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dad Of Diamond — New Order &amp; Workshop Sheet</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 </head>
+
 <body>
   <header class="topbar">
     <div class="topbar-inner">
@@ -13,14 +15,15 @@
         <div class="brand-mark">DOD</div>
         <div>
           <div class="brand-title">Dad Of Diamond</div>
-          <div class="brand-sub">Order Entry &amp; Karigar Job Sheet System</div>
+          <div class="brand-sub">Order Entry </div>
         </div>
       </a>
       <nav class="nav-links">
         <a href="{{ url_for('index') }}" class="nav-link active">New Order</a>
         <a href="{{ url_for('orders_page') }}" class="nav-link">Orders History</a>
         {% if drive_status.configured %}
-        <span class="status-pill connected" title="Google Drive connected ({{ drive_status.mode }})">Drive Connected</span>
+        <span class="status-pill connected" title="Google Drive connected ({{ drive_status.mode }})">Drive
+          Connected</span>
         {% else %}
         <span class="status-pill local" title="{{ drive_status.message }}">Local Storage Mode</span>
         {% endif %}
@@ -48,16 +51,8 @@
         <div class="grid-3">
           <div class="field">
             <label for="order_id">Order ID <span class="req">*</span></label>
-            <input
-              type="text"
-              id="order_id"
-              name="order_id"
-              maxlength="15"
-              pattern="[A-Za-z0-9]{1,15}"
-              placeholder="e.g. DOD2026001"
-              required
-              autocomplete="off"
-            />
+            <input type="text" id="order_id" name="order_id" maxlength="15" pattern="[A-Za-z0-9]{1,15}"
+              placeholder="e.g. DOD2026001" required autocomplete="off" />
             <span id="orderIdStatus" class="hint">Alphanumeric, max 15 characters.</span>
           </div>
 
@@ -83,7 +78,8 @@
 
           <div class="field span-2">
             <label for="living_address">Living / Shipping Address</label>
-            <input type="text" id="living_address" name="living_address" placeholder="Street, City, State, Postal Code, Country" />
+            <input type="text" id="living_address" name="living_address"
+              placeholder="Street, City, State, Postal Code, Country" />
           </div>
         </div>
       </section>
@@ -121,12 +117,8 @@
               <option value="{{ metal }}">{{ metal }}</option>
               {% endfor %}
             </select>
-            <input
-              type="text"
-              id="custom_metal_option"
-              class="hidden"
-              placeholder="Specify custom metal (e.g. 22K Gold, Titanium)"
-            />
+            <input type="text" id="custom_metal_option" class="hidden"
+              placeholder="Specify custom metal (e.g. 22K Gold, Titanium)" />
             <input type="hidden" id="metal_option" name="metal_option" />
           </div>
 
@@ -142,28 +134,21 @@
           <div class="field">
             <label for="size_closure_select">Size / Closure <span class="req">*</span></label>
             <select id="size_closure_select" required></select>
-            <input
-              type="text"
-              id="custom_size_closure"
-              class="hidden"
-              placeholder="Specify custom size / bail / closure"
-            />
+            <input type="text" id="custom_size_closure" class="hidden"
+              placeholder="Specify custom size / bail / closure" />
             <input type="hidden" id="size_or_closure" name="size_or_closure" />
           </div>
 
           <div class="field span-2">
-            <label for="engraving">Engraving Text <span class="hint">(Highlighted callout on PDF if provided)</span></label>
+            <label for="engraving">Engraving Text <span class="hint">(Highlighted callout on PDF if
+                provided)</span></label>
             <input type="text" id="engraving" name="engraving" placeholder="e.g. Forever &amp; Always ♥ 25.11.2026" />
           </div>
 
           <div class="field span-2">
             <label for="special_requirements">Special Requirements / CAD Notes</label>
-            <textarea
-              id="special_requirements"
-              name="special_requirements"
-              rows="3"
-              placeholder="Prong style, band width, gallery height, comfort fit, rush instructions..."
-            ></textarea>
+            <textarea id="special_requirements" name="special_requirements" rows="3"
+              placeholder="Prong style, band width, gallery height, comfort fit, rush instructions..."></textarea>
           </div>
         </div>
       </section>
@@ -175,7 +160,8 @@
           <button type="button" id="addStoneBtn" class="btn btn-outline">+ Add Another Stone</button>
         </h2>
         <div id="stonesContainer"></div>
-        <p id="noStonesHint" class="hint">No stones added yet. Click "+ Add Another Stone" to log center, halo, or side stones.</p>
+        <p id="noStonesHint" class="hint">No stones added yet. Click "+ Add Another Stone" to log center, halo, or side
+          stones.</p>
       </section>
 
       <!-- Section 4: Reference Media -->
@@ -191,13 +177,7 @@
             <div id="imageDropzone" class="dropzone" tabindex="0">
               <div class="dropzone-title">Drop images here or click to browse</div>
               <div class="dropzone-sub" id="imageCountText">0 / {{ max_images }} images selected</div>
-              <input
-                type="file"
-                id="imageInput"
-                accept=".jpg,.jpeg,.png,.webp"
-                multiple
-                class="hidden"
-              />
+              <input type="file" id="imageInput" accept=".jpg,.jpeg,.png,.webp" multiple class="hidden" />
             </div>
             <div id="imagePreviewGrid" class="preview-grid"></div>
           </div>
@@ -207,13 +187,7 @@
             <div id="videoDropzone" class="dropzone" tabindex="0">
               <div class="dropzone-title">Drop videos here or click to browse</div>
               <div class="dropzone-sub" id="videoCountText">0 / {{ max_videos }} videos selected</div>
-              <input
-                type="file"
-                id="videoInput"
-                accept=".mp4,.mov"
-                multiple
-                class="hidden"
-              />
+              <input type="file" id="videoInput" accept=".mp4,.mov" multiple class="hidden" />
             </div>
             <div id="videoPreviewList" class="video-list"></div>
           </div>
@@ -230,12 +204,13 @@
   <script>
     window.DOD_CONFIG = {
       maxImages: {{ max_images }},
-      maxVideos: {{ max_videos }},
-      maxVideoMb: {{ max_video_mb }},
-      stoneTypes: {{ stone_types | tojson }},
-      stoneShapes: {{ stone_shapes | tojson }}
+    maxVideos: { { max_videos } },
+    maxVideoMb: { { max_video_mb } },
+    stoneTypes: { { stone_types | tojson } },
+    stoneShapes: { { stone_shapes | tojson } }
     };
   </script>
   <script src="{{ url_for('static', filename='js/order_form.js') }}"></script>
 </body>
+
 </html>
