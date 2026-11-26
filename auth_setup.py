@@ -28,8 +28,9 @@ def get_db_connection(db_path: str | None = None) -> sqlite3.Connection:
     parent = os.path.dirname(resolved)
     if parent:
         os.makedirs(parent, exist_ok=True)
-    conn = sqlite3.connect(resolved)
+    conn = sqlite3.connect(resolved, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL;")
     return conn
 
 
@@ -47,8 +48,8 @@ def init_auth_tables(db_path: str | None = None) -> None:
             )
             """
         )
-        admin_username = os.environ.get("ADMIN_USERNAME", "admin").strip()
-        admin_password = os.environ.get("ADMIN_PASSWORD", "ChangeMe@123")
+        admin_username = os.environ.get("ADMIN_USERNAME", "dodadmin").strip()
+        admin_password = os.environ.get("ADMIN_PASSWORD", "Dod@130726")
 
         existing_admin = conn.execute(
             "SELECT id FROM users WHERE role = 'admin' LIMIT 1"

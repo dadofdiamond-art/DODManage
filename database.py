@@ -22,9 +22,10 @@ def get_db_path(db_path: str | None = None) -> str:
 @contextmanager
 def get_connection(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
     """Yield a configured SQLite connection with foreign keys enabled."""
-    conn = sqlite3.connect(get_db_path(db_path))
+    conn = sqlite3.connect(get_db_path(db_path), timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")
     try:
         yield conn
         conn.commit()

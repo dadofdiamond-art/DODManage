@@ -6,8 +6,8 @@
   <title>{{ brand_name }} — Workshop Job Sheet</title>
   <style>
     @page {
-      size: A4;
-      margin: 12mm;
+      size: A4 landscape;
+      margin: 10mm;
     }
 
     * {
@@ -20,432 +20,314 @@
       font-family: "Segoe UI", Arial, Helvetica, sans-serif;
       color: #1f2937;
       background: #ffffff;
-      font-size: 11px;
-      line-height: 1.45;
+      font-size: 26px;
+      line-height: 1.3;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    .sheet-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 3px solid #3F070C;
-      padding-bottom: 10px;
-      margin-bottom: 14px;
-    }
-
-    .brand-block .brand-name {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #3F070C;
-    }
-
-    .brand-block .sheet-subtitle {
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #6b7280;
-      margin-top: 2px;
-    }
-
-    .header-meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      text-align: right;
-    }
-
-    .meta-pill {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-top: 2px solid #3F070C;
-      border-radius: 4px;
-      padding: 5px 10px;
-    }
-
-    .meta-pill .label {
-      display: block;
-      font-size: 8.5px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #6b7280;
-    }
-
-    .meta-pill .value {
-      display: block;
-      font-size: 12px;
-      font-weight: 800;
-      color: #111827;
-      margin-top: 1px;
-    }
-
-    .section {
-      margin-bottom: 14px;
-      break-inside: avoid;
-    }
-
-    .section-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #3F070C;
-      border-left: 4px solid #3F070C;
-      padding-left: 8px;
-      margin-bottom: 8px;
-    }
-
-    .spec-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .spec-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 7px 10px;
-    }
-
-    .spec-card .label {
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #6b7280;
-      display: block;
-    }
-
-    .spec-card .value {
-      font-size: 11.5px;
-      font-weight: 700;
-      color: #111827;
-      margin-top: 2px;
-      display: block;
-    }
-
-    .engraving-callout {
-      background: #fdf6f6;
-      border: 1.5px solid #3F070C;
-      border-radius: 5px;
-      padding: 8px 12px;
-      margin-bottom: 8px;
-      break-inside: avoid;
-    }
-
-    .engraving-callout .callout-label {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #3F070C;
-    }
-
-    .engraving-callout .callout-text {
-      font-size: 13px;
-      font-weight: 700;
-      color: #111827;
-      margin-top: 2px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .requirements-box {
-      background: #f9fafb;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
-      padding: 8px 10px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      break-inside: avoid;
-    }
-
-    .requirements-box .label {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #4b5563;
-      display: block;
-      margin-bottom: 2px;
-    }
-
-    table.stone-table {
+    .job-sheet-wrapper {
       width: 100%;
       border-collapse: collapse;
-      break-inside: avoid;
+      border: 2.5px solid #3F070C;
+      table-layout: fixed;
     }
 
-    table.stone-table th {
-      background: #3F070C;
-      color: #ffffff;
-      font-size: 9.5px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      text-align: left;
-      padding: 6px 8px;
-      border: 1px solid #3F070C;
-    }
-
-    table.stone-table td {
-      padding: 6px 8px;
-      border: 1px solid #e5e7eb;
-      font-size: 10.5px;
-      color: #111827;
-    }
-
-    table.stone-table tbody tr:nth-child(even) {
-      background: #f9fafb;
-    }
-
-    .empty-note {
-      font-size: 10.5px;
-      color: #6b7280;
-      background: #f9fafb;
-      border: 1px dashed #d1d5db;
-      border-radius: 4px;
+    .job-sheet-wrapper td {
+      border: 2px solid #3F070C;
       padding: 8px 10px;
+      vertical-align: middle;
     }
 
-    .gallery-section {
-      margin-bottom: 14px;
+    /* Column Widths matching the reference layout */
+    .col-label {
+      width: 14%;
+      text-align: center;
+      font-weight: 600;
+      font-size: 26px;
+      color: #3F070C;
+      background: #f9fafb;
     }
 
-    .image-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-
-    .image-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 5px;
-      padding: 6px;
+    .col-value {
+      width: 19%;
+      text-align: center;
+      font-weight: 700;
+      font-size: 27px;
+      color: #111827;
       background: #ffffff;
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
 
-    .image-card img {
-      width: 100%;
-      height: 175px;
+    .col-qr {
+      width: 11%;
+      text-align: center;
+      vertical-align: middle;
+      padding: 6px;
+      background: #f9fafb;
+    }
+
+    .col-image {
+      width: 56%;
+      text-align: center;
+      vertical-align: middle;
+      padding: 10px;
+      background: #f9fafb;
+    }
+
+    /* QR Code styling */
+    .qr-img {
+      width: 82px;
+      height: 82px;
       object-fit: contain;
       display: block;
-      background: #f9fafb;
-      border-radius: 3px;
-    }
-
-    .image-caption {
-      margin-top: 4px;
-      font-size: 8.5px;
-      color: #6b7280;
-      text-align: center;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .video-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border: 1px solid #e5e7eb;
-      border-left: 3px solid #3F070C;
-      border-radius: 5px;
-      padding: 8px 10px;
-      background: #f9fafb;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .video-qr {
-      width: 68px;
-      height: 68px;
-      flex-shrink: 0;
+      margin: 0 auto;
       background: #ffffff;
-      border: 1px solid #e5e7eb;
+      border: 1.5px solid #e5e7eb;
       border-radius: 4px;
       padding: 2px;
     }
 
-    .video-info {
-      min-width: 0;
-      flex: 1;
+    /* Main Product Image styling */
+    .main-product-img {
+      max-width: 100%;
+      max-height: 440px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 4px;
     }
 
-    .video-info .video-title {
-      font-size: 10.5px;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 2px;
-    }
-
-    .video-info a {
-      font-size: 9px;
+    /* Maroon callout tint for Remarks / Special Requirements */
+    .remarks-cell {
+      text-align: left !important;
       color: #3F070C;
-      word-break: break-all;
-      text-decoration: underline;
+      background: #fdf6f6 !important;
+      font-weight: 700;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
-    .sheet-footer {
-      margin-top: 12px;
-      padding-top: 6px;
-      border-top: 1px solid #e5e7eb;
+    /* Matching maroon-styled continuation tables for Stones & Extra Media */
+    .extra-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 2.5px solid #3F070C;
+      margin-top: 10px;
+      table-layout: fixed;
+      break-inside: avoid;
+    }
+
+    .extra-table th,
+    .extra-table td {
+      border: 2px solid #3F070C;
+      padding: 6px 8px;
+      text-align: center;
+      font-size: 24px;
+    }
+
+    .extra-table th {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: #3F070C;
+      color: #ffffff;
+    }
+
+    .extra-table tbody tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+
+    .extra-table tbody tr:nth-child(odd) td {
+      background: #ffffff;
+    }
+
+    .extra-images-grid {
       display: flex;
-      justify-content: space-between;
-      font-size: 8.5px;
-      color: #6b7280;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    .extra-images-grid img {
+      height: 120px;
+      width: auto;
+      object-fit: contain;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 4px;
+      background: #ffffff;
+      padding: 3px;
     }
   </style>
 </head>
 
 <body>
-  <header class="sheet-header">
-    <div class="header-meta">
-      <div class="meta-pill">
-        <span class="label">Order ID</span>
-        <span class="value">{{ order_id }}</span>
-      </div>
-      <div class="meta-pill">
-        <span class="label">SKU</span>
-        <span class="value">{{ product_sku }}</span>
-      </div>
-      <div class="meta-pill">
-        <span class="label">Customer</span>
-        <span class="value">{{ customer_name }}</span>
-      </div>
-      <div class="meta-pill">
-        <span class="label">Dispatch Date</span>
-        <span class="value">{{ dispatch_date }}</span>
-      </div>
-      <div class="meta-pill">
-        <span class="label">Quantity</span>
-        <span class="value">{{ quantity }}</span>
-      </div>
-    </div>
-  </header>
-
-  <section class="section">
-    <h2 class="section-title">Product Specifications</h2>
-    <div class="spec-grid">
-      <div class="spec-card">
-        <span class="label">Product Type</span>
-        <span class="value">{{ product_type }}</span>
-      </div>
-      <div class="spec-card">
-        <span class="label">Metal Option &amp; Tone</span>
-        <span class="value">{{ metal_option }} — {{ metal_tone }}</span>
-      </div>
-      <div class="spec-card">
-        <span class="label">Size / Closure</span>
-        <span class="value">{{ size_or_closure }}</span>
-      </div>
-    </div>
-
-    {% if engraving %}
-    <div class="engraving-callout">
-      <div class="callout-label">Engraving Instruction</div>
-      <div class="callout-text">{{ engraving }}</div>
-    </div>
-    {% endif %}
-
-    {% if special_requirements %}
-    <div class="requirements-box">
-      <span class="label">Special Requirements / CAD Notes</span>
-      <div>{{ special_requirements }}</div>
-    </div>
-    {% endif %}
-  </section>
-
-  <section class="section">
-    <h2 class="section-title">Stone Details</h2>
-    {% if stones %}
-    <table class="stone-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Stone Type</th>
-          <th>Shape</th>
-          <th>Size (mm)</th>
-          <th>Carat Weight</th>
-          <th>Color</th>
-          <th>Qty</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for stone in stones %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ stone.stone_type or "—" }}</td>
-          <td>{{ stone.shape or "—" }}</td>
-          <td>{{ stone.size_mm or "—" }}</td>
-          <td>{{ stone.carat_weight or "—" }}</td>
-          <td>{{ stone.color or "—" }}</td>
-          <td>{{ stone.quantity or "—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-note">No stones specified for this production sheet.</div>
-    {% endif %}
-  </section>
-
-  {% if images %}
-  <section class="gallery-section">
-    <h2 class="section-title">Reference Images ({{ images|length }})</h2>
-    <div class="image-grid">
-      {% for img in images %}
-      <div class="image-card">
-        <img src="{{ img.src }}" alt="Reference {{ img.index }}" />
-        <div class="image-caption">
-          Ref #{{ img.index }} — {{ img.filename }}
-          {% if img.drive_view_link %}
-          &bull; <a href="{{ img.drive_view_link }}" style="color:#3F070C;">Drive Link</a>
+  <!-- Primary Job Sheet Grid matching the exact visual layout -->
+  <table class="job-sheet-wrapper">
+    <colgroup>
+      <col class="col-label" />
+      <col class="col-value" />
+      <col class="col-qr" />
+      <col class="col-image" />
+    </colgroup>
+    <tbody>
+      <!-- Row 1: Order No + QR Code (spans 3 rows) + Main Image (spans all 10 rows) -->
+      <tr>
+        <td class="col-label">Order No. :</td>
+        <td class="col-value">{{ order_id }}</td>
+        <td class="col-qr" rowspan="3">
+          {% if videos and videos[0].qr_data_uri %}
+          <img class="qr-img" src="{{ videos[0].qr_data_uri }}" alt="QR Code" />
+          {% elif qr_data_uri %}
+          <img class="qr-img" src="{{ qr_data_uri }}" alt="QR Code" />
           {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if videos %}
-  <section class="section">
-    <h2 class="section-title">Video References ({{ videos|length }})</h2>
-    <div class="video-grid">
-      {% for vid in videos %}
-      <div class="video-card">
-        {% if vid.qr_data_uri %}
-        <img class="video-qr" src="{{ vid.qr_data_uri }}" alt="QR Video {{ vid.index }}" />
-        {% endif %}
-        <div class="video-info">
-          <div class="video-title">Video #{{ vid.index }} — {{ vid.filename }}</div>
-          {% if vid.drive_view_link %}
-          <a href="{{ vid.drive_view_link }}">{{ vid.drive_view_link }}</a>
+        </td>
+        <td class="col-image" rowspan="10">
+          {% if images and images|length > 0 %}
+          <img class="main-product-img" src="{{ images[0].src }}"
+            alt="{{ images[0].filename or 'Product Reference' }}" />
           {% else %}
-          <div style="font-size: 9px; color: #6b7280;">Stored locally (Google Drive not yet connected)</div>
+          <span style="color: #6b7280; font-size: 24px;">No Reference Image</span>
           {% endif %}
-        </div>
-      </div>
+        </td>
+      </tr>
+
+      <!-- Row 2: SKU -->
+      <tr>
+        <td class="col-label">SKU :</td>
+        <td class="col-value">{{ product_sku }}</td>
+      </tr>
+
+      <!-- Row 3: Delivery / Dispatch Date -->
+      <tr>
+        <td class="col-label">Delivery<br />Date:</td>
+        <td class="col-value">{{ dispatch_date }}</td>
+      </tr>
+
+      <!-- Row 4: Party / Customer Name -->
+      <tr>
+        <td class="col-label">Party Name:</td>
+        <td class="col-value" colspan="2">{{ customer_name }}</td>
+      </tr>
+
+      <!-- Row 5: Items / Product Type -->
+      <tr>
+        <td class="col-label">Items:</td>
+        <td class="col-value" colspan="2">{{ product_type }}</td>
+      </tr>
+
+      <!-- Row 6: Metal Option -->
+      <tr>
+        <td class="col-label">Metal Option:</td>
+        <td class="col-value" colspan="2">{{ metal_option or '—' }}</td>
+      </tr>
+
+      <!-- Row 7: Metal Tone -->
+      <tr>
+        <td class="col-label">Metal Tone:</td>
+        <td class="col-value" colspan="2">{{ metal_tone or '—' }}</td>
+      </tr>
+
+      <!-- Row 8: Quantity -->
+      <tr>
+        <td class="col-label">Quantity:</td>
+        <td class="col-value" colspan="2">{{ quantity }}</td>
+      </tr>
+
+      <!-- Row 9: Engraving (in place of Party Order No) -->
+      <tr>
+        <td class="col-label">Engraving:</td>
+        <td class="col-value" colspan="2">{{ engraving or '—' }}</td>
+      </tr>
+
+      <!-- Row 10: Size -->
+      <tr>
+        <td class="col-label">Size:</td>
+        <td class="col-value" colspan="2">{{ size_or_closure }}</td>
+      </tr>
+
+      <!-- Row 11: Remarks (Special Requirements) -->
+      <tr>
+        <td class="col-label">Remarks:</td>
+        <td class="col-value remarks-cell" colspan="3">{{ special_requirements }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Stone Details Table (Renders in matching maroon-accented grid style if stones exist) -->
+  {% if stones %}
+  <table class="extra-table">
+    <thead>
+      <tr>
+        <th style="width: 6%;">#</th>
+        <th>Stone Type</th>
+        <th>Shape</th>
+        <th>Size (mm)</th>
+        <th>Carat Weight</th>
+        <th>Color</th>
+        <th style="width: 10%;">Qty</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stone in stones %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ stone.stone_type or "—" }}</strong></td>
+        <td>{{ stone.shape or "—" }}</td>
+        <td>{{ stone.size_mm or "—" }}</td>
+        <td>{{ stone.carat_weight or "—" }}</td>
+        <td>{{ stone.color or "—" }}</td>
+        <td><strong>{{ stone.quantity or "—" }}</strong></td>
+      </tr>
       {% endfor %}
-    </div>
-  </section>
+    </tbody>
+  </table>
   {% endif %}
 
-  <footer class="sheet-footer">
-    <span>{{ brand_name }} Internal Production Document — Customer PII Excluded</span>
-  </footer>
+  <!-- Additional Reference Images & Videos (Only renders if more than 1 image or video links exist) -->
+  {% if (images and images|length > 1) or videos %}
+  <table class="extra-table">
+    <tbody>
+      {% if images and images|length > 1 %}
+      <tr>
+        <td class="col-label" style="width: 14%;">Additional<br />Images:</td>
+        <td style="text-align: left; background: #f9fafb;">
+          <div class="extra-images-grid">
+            {% for img in images[1:] %}
+            <div style="text-align: center;">
+              <img src="{{ img.src }}" alt="Ref #{{ img.index }}" />
+              <div style="font-size: 20px; color: #6b7280; margin-top: 2px;">Ref #{{ img.index }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+
+      {% if videos %}
+      <tr>
+        <td class="col-label" style="width: 14%;">Video<br />Links:</td>
+        <td style="text-align: left; background: #ffffff;">
+          {% for vid in videos %}
+          <div style="margin-bottom: 4px; color: #111827;">
+            <strong>Video #{{ vid.index }} ({{ vid.filename }}):</strong>
+            {% if vid.drive_view_link %}
+            <a href="{{ vid.drive_view_link }}" style="color: #3F070C; text-decoration: underline;">{{
+              vid.drive_view_link }}</a>
+            {% else %}
+            <span style="color: #6b7280;">Stored locally</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
 </body>
 
 </html>
