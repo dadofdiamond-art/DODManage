@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dad Of Diamond — Admin User Management</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    .flash-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px 0;
+    }
+    .flash-item {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    .flash-error {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid #fecaca;
+    }
+    .flash-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #a7f3d0;
+    }
+    .role-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .role-admin {
+      background: var(--maroon-tint);
+      color: var(--maroon);
+      border: 1px solid var(--maroon-border);
+    }
+    .role-user {
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-light);
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-mark">DOD</div>
+        <div>
+          <div class="brand-title">Dad Of Diamond</div>
+          <div class="brand-sub">Admin User Management</div>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="{{ url_for('index') }}" class="nav-link">New Order</a>
+        <a href="{{ url_for('orders_page') }}" class="nav-link">Orders History</a>
+        <a href="{{ url_for('admin_users') }}" class="nav-link active">Add Users</a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout ({{ current_user }})</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <h1>Admin Panel — Add Team User</h1>
+        <p>Signed in as <strong>{{ current_user }}</strong> (Admin). Create standard user accounts for team members.</p>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, msg in messages %}
+            <li class="flash-item flash-{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <section class="card">
+      <h2 class="card-title">Create New User</h2>
+      <form method="POST" action="{{ url_for('admin_users') }}">
+        <div class="grid-2">
+          <div class="field">
+            <label for="username">New Username <span class="req">*</span></label>
+            <input type="text" id="username" name="username" minlength="3" required autocomplete="off"
+              placeholder="At least 3 characters" />
+          </div>
+          <div class="field">
+            <label for="password">Temporary Password <span class="req">*</span></label>
+            <input type="password" id="password" name="password" minlength="6" required autocomplete="new-password"
+              placeholder="At least 6 characters" />
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Add User</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Existing Accounts</h2>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr>
+                <td>{{ u.id }}</td>
+                <td><strong>{{ u.username }}</strong></td>
+                <td>
+                  <span class="role-badge role-{{ u.role }}">{{ u.role }}</span>
+                </td>
+                <td>{{ u.created_at }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+
+</html>

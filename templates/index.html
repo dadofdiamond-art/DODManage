@@ -21,6 +21,10 @@
       <nav class="nav-links">
         <a href="{{ url_for('index') }}" class="nav-link active">New Order</a>
         <a href="{{ url_for('orders_page') }}" class="nav-link">Orders History</a>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin_users') }}" class="nav-link">Add Users</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
         {% if drive_status.configured %}
         <span class="status-pill connected" title="Google Drive connected ({{ drive_status.mode }})">Drive
           Connected</span>

@@ -9,9 +9,17 @@ import shutil
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
+from auth_setup import (
+    admin_required,
+    create_standard_user,
+    init_auth_tables,
+    list_users,
+    login_required,
+    verify_user,
+)
 from database import (
     delete_order,
     get_order_by_id,
@@ -75,10 +83,14 @@ STONE_SHAPES = [
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dod-local-workshop-secret")
+    app.config["SECRET_KEY"] = (
+        os.environ.get("SECRET_KEY")
+        or os.environ.get("FLASK_SECRET_KEY")
+        or "dod-local-workshop-secret"
+    )
     app.config["DB_PATH"] = os.environ.get("DOD_DB_PATH", os.path.join(BASE_DIR, "orders.db"))
     app.config["UPLOAD_DIR"] = os.environ.get("DOD_UPLOAD_DIR", os.path.join(BASE_DIR, "uploads"))
-    app.config["PDF_DIR"] = os.environ.get("DOD_PDF_DIR", os.path.join(BASE_DIR, "generated_pdfs"))
+    app.config["PDF_DIR"] = os.path.join(BASE_DIR, "generated_pdfs") if not os.environ.get("DOD_PDF_DIR") else os.environ.get("DOD_PDF_DIR")
     app.config["MAX_VIDEO_SIZE_MB"] = int(os.environ.get("MAX_VIDEO_SIZE_MB", DEFAULT_MAX_VIDEO_MB))
 
     if test_config:
@@ -87,8 +99,47 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     os.makedirs(app.config["UPLOAD_DIR"], exist_ok=True)
     os.makedirs(app.config["PDF_DIR"], exist_ok=True)
     init_db(app.config["DB_PATH"])
+    init_auth_tables(app.config["DB_PATH"])
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if request.method == "POST":
+            username = request.form.get("username", "")
+            password = request.form.get("password", "")
+            user = verify_user(username, password, db_path=app.config["DB_PATH"])
+            if user:
+                session.clear()
+                session["user_id"] = user["id"]
+                session["username"] = user["username"]
+                session["role"] = user["role"]
+                return redirect(url_for("index"))
+            flash("Invalid username or password.", "error")
+        return render_template("login.html")
+
+    @app.route("/logout")
+    def logout():
+        session.clear()
+        return redirect(url_for("login"))
+
+    @app.route("/admin/users", methods=["GET", "POST"])
+    @admin_required
+    def admin_users():
+        if request.method == "POST":
+            new_username = request.form.get("username", "")
+            new_password = request.form.get("password", "")
+            ok, message = create_standard_user(
+                new_username, new_password, db_path=app.config["DB_PATH"]
+            )
+            flash(message, "success" if ok else "error")
+            return redirect(url_for("admin_users"))
+
+        users = list_users(db_path=app.config["DB_PATH"])
+        return render_template(
+            "admin_users.html", users=users, current_user=session.get("username")
+        )
 
     @app.route("/", methods=["GET"])
+    @login_required
     def index():
         return render_template(
             "index.html",
@@ -104,6 +155,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
 
     @app.route("/orders", methods=["GET"])
+    @login_required
     def orders_page():
         query = request.args.get("q", "").strip()
         orders = list_all_orders(search_query=query, db_path=app.config["DB_PATH"])
@@ -115,10 +167,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
 
     @app.route("/api/drive-status", methods=["GET"])
+    @login_required
     def api_drive_status():
         return jsonify(get_drive_status())
 
     @app.route("/api/check-order-id/<order_id>", methods=["GET"])
+    @login_required
     def api_check_order_id(order_id: str):
         cleaned = (order_id or "").strip()
         valid_format = bool(ORDER_ID_PATTERN.match(cleaned))
@@ -133,12 +187,14 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
 
     @app.route("/api/orders", methods=["GET"])
+    @login_required
     def api_list_orders():
         query = request.args.get("q", "").strip()
         orders = list_all_orders(search_query=query, db_path=app.config["DB_PATH"])
         return jsonify({"orders": orders, "count": len(orders)})
 
     @app.route("/api/orders/<order_id>", methods=["GET"])
+    @login_required
     def api_get_order(order_id: str):
         order = get_order_by_id(order_id, db_path=app.config["DB_PATH"])
         if order is None:
@@ -166,6 +222,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         return canonical_id
 
     @app.route("/api/orders/<order_id>", methods=["DELETE"])
+    @login_required
     def api_delete_order(order_id: str):
         canonical_id = _delete_order_and_files(order_id)
         if canonical_id is None:
@@ -173,6 +230,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         return jsonify({"ok": True, "deleted_order_id": canonical_id})
 
     @app.route("/api/orders/bulk-delete", methods=["POST"])
+    @login_required
     def api_bulk_delete_orders():
         payload = request.get_json(silent=True) or {}
         raw_ids = payload.get("order_ids") or []
@@ -188,6 +246,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         return jsonify({"ok": True, "deleted_order_ids": deleted_ids, "count": len(deleted_ids)})
 
     @app.route("/api/orders", methods=["POST"])
+    @login_required
     def api_create_order():
         form = request.form
 
@@ -399,6 +458,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         ), 201
 
     @app.route("/orders/<order_id>/pdf", methods=["GET"])
+    @login_required
     def download_order_pdf(order_id: str):
         workshop_order = get_workshop_order_by_id(order_id, db_path=app.config["DB_PATH"])
         if workshop_order is None:
@@ -420,6 +480,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         )
 
     @app.route("/uploads/<order_id>/<filename>", methods=["GET"])
+    @login_required
     def serve_local_upload(order_id: str, filename: str):
         safe_id = secure_filename(order_id)
         safe_name = secure_filename(filename)

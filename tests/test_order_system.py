@@ -49,6 +49,10 @@ def app_client(tmp_path, monkeypatch):
         }
     )
     with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["user_id"] = 1
+            sess["username"] = "admin"
+            sess["role"] = "admin"
         yield client, app, db_path, pdf_dir
 
 
@@ -494,3 +498,81 @@ def test_local_database_backup(tmp_path):
     count = conn.execute("SELECT COUNT(*) FROM orders WHERE order_id = 'DODBAK1'").fetchone()[0]
     conn.close()
     assert count == 1
+
+
+def test_auth_login_and_admin_only_user_management(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.get_drive_status", lambda: {"configured": False, "mode": "local_only"})
+    monkeypatch.setenv("ADMIN_USERNAME", "bossadmin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "SecretAdmin123!")
+
+    db_path = str(tmp_path / "auth_orders.db")
+    upload_dir = str(tmp_path / "uploads")
+    pdf_dir = str(tmp_path / "pdfs")
+
+    app = create_app(
+        {
+            "TESTING": True,
+            "DB_PATH": db_path,
+            "UPLOAD_DIR": upload_dir,
+            "PDF_DIR": pdf_dir,
+        }
+    )
+
+    with app.test_client() as client:
+        # Unauthenticated visitors are redirected to /login
+        for protected_path in ("/", "/orders", "/admin/users"):
+            resp = client.get(protected_path)
+            assert resp.status_code == 302
+            assert "/login" in resp.headers["Location"]
+
+        # Admin login succeeds
+        login_resp = client.post(
+            "/login",
+            data={"username": "bossadmin", "password": "SecretAdmin123!"},
+            follow_redirects=True,
+        )
+        assert login_resp.status_code == 200
+        home_html = login_resp.get_data(as_text=True)
+        assert "Add Users" in home_html
+
+        # Admin creates a standard user
+        create_resp = client.post(
+            "/admin/users",
+            data={"username": "karigar1", "password": "UserPass123!"},
+            follow_redirects=True,
+        )
+        assert create_resp.status_code == 200
+        admin_html = create_resp.get_data(as_text=True)
+        assert "karigar1" in admin_html
+        assert "created successfully" in admin_html
+
+        # Logout and sign in as standard user
+        client.get("/logout")
+        user_login = client.post(
+            "/login",
+            data={"username": "karigar1", "password": "UserPass123!"},
+            follow_redirects=True,
+        )
+        assert user_login.status_code == 200
+        user_home = user_login.get_data(as_text=True)
+        assert "Add Users" not in user_home
+
+        # Regular user gets 403 Forbidden on /admin/users
+        assert client.get("/admin/users").status_code == 403
+        assert client.post("/admin/users", data={"username": "x", "password": "y"}).status_code == 403
+
+    # Persistence across app restart
+    app_restarted = create_app(
+        {
+            "TESTING": True,
+            "DB_PATH": db_path,
+            "UPLOAD_DIR": upload_dir,
+            "PDF_DIR": pdf_dir,
+        }
+    )
+    with app_restarted.test_client() as client2:
+        r1 = client2.post("/login", data={"username": "bossadmin", "password": "SecretAdmin123!"})
+        assert r1.status_code == 302
+        client2.get("/logout")
+        r2 = client2.post("/login", data={"username": "karigar1", "password": "UserPass123!"})
+        assert r2.status_code == 302

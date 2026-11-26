@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dad Of Diamond — Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    .login-wrap {
+      max-width: 420px;
+      margin: 64px auto;
+      padding: 0 16px;
+    }
+    .flash-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px 0;
+    }
+    .flash-item {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    .flash-error {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid #fecaca;
+    }
+    .flash-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #a7f3d0;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">DOD</div>
+        <div>
+          <div class="brand-title">Dad Of Diamond</div>
+          <div class="brand-sub">Order Entry &amp; Workshop System</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="login-wrap">
+    <section class="card">
+      <h2 class="card-title">Sign In</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flash-list">
+            {% for category, msg in messages %}
+              <li class="flash-item flash-{{ category }}">{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}">
+        <div class="field" style="margin-bottom: 14px;">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required autofocus autocomplete="username" />
+        </div>
+        <div class="field" style="margin-bottom: 18px;">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+      </form>
+    </section>
+  </main>
+</body>
+
+</html>
