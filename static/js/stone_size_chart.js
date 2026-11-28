@@ -180,23 +180,23 @@
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
     const perStone = total / qty;
 
-    // Exact range match first
-    for (const item of rows) {
+    // Sort ascending by caratMin so we pick equal or nearest greater carat weight
+    const sorted = [...rows].sort((a, b) => a.caratMin - b.caratMin || a.caratMax - b.caratMax);
+
+    // 1. Exact or within-range match
+    for (const item of sorted) {
       if (perStone >= item.caratMin && perStone <= item.caratMax) {
         return item;
       }
     }
-    // Nearest match
-    let best = rows[0];
-    let bestDiff = Math.abs(perStone - best.caratMid);
-    for (const item of rows) {
-      const diff = Math.abs(perStone - item.caratMid);
-      if (diff < bestDiff) {
-        best = item;
-        bestDiff = diff;
+    // 2. Nearest greater carat weight
+    for (const item of sorted) {
+      if (item.caratMin >= perStone || item.caratMax >= perStone) {
+        return item;
       }
     }
-    return best;
+    // 3. Larger than all chart entries -> largest entry
+    return sorted[sorted.length - 1];
   }
 
   window.DOD_STONE_CHART = STONE_SIZE_CHART;

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dad Of Diamond — Orders History</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 </head>
+
 <body>
   <header class="topbar">
     <div class="topbar-inner">
@@ -36,112 +38,204 @@
     <div class="page-header">
       <div>
         <h1>Orders History &amp; Lookup</h1>
-        <p>Search stored orders by Order ID, Product SKU, or Customer Name. View full local details or re-download workshop PDFs.</p>
+        <p>Search stored orders by Order ID, Product SKU, or Customer Name. View full local details or re-download
+          workshop PDFs.</p>
       </div>
       <a href="{{ url_for('index') }}" class="btn btn-primary">+ Create New Order</a>
     </div>
 
     <div id="ordersAlert" class="alert hidden"></div>
 
-    <section class="card">
-      <div class="search-bar">
-        <input
-          type="text"
-          id="searchInput"
-          value="{{ search_query }}"
-          placeholder="Search by Order ID, SKU, or Customer Name..."
-          autocomplete="off"
-        />
-        <button type="button" id="searchBtn" class="btn btn-primary">Search</button>
-        <button type="button" id="clearSearchBtn" class="btn btn-outline">Reset</button>
-        <button type="button" id="deleteSelectedBtn" class="btn btn-danger hidden">Delete Selected</button>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start;">
+      <div>
+        <section class="card">
+          <div class="search-bar">
+            <input type="text" id="searchInput" value="{{ search_query }}"
+              placeholder="Search by Order ID, SKU, or Customer Name..." autocomplete="off" />
+            <button type="button" id="searchBtn" class="btn btn-primary">Search</button>
+            <button type="button" id="clearSearchBtn" class="btn btn-outline">Reset</button>
+            <button type="button" id="deleteSelectedBtn" class="btn btn-danger hidden">Delete Selected</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 36px;"><input type="checkbox" id="selectAllOrders" title="Select all" /></th>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Product &amp; SKU</th>
+                  <th>Metal &amp; Size</th>
+                  <th>Dispatch Date</th>
+                  <th>Media</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody">
+                {% for order in orders %}
+                <tr>
+                  <td>
+                    <input type="checkbox" class="order-select-cb" value="{{ order.order_id }}"
+                      aria-label="Select {{ order.order_id }}" />
+                  </td>
+                  <td><span class="order-id-pill">{{ order.order_id }}</span></td>
+                  <td>
+                    <strong>{{ order.customer_name }}</strong><br />
+                    <span class="hint">{{ order.mobile_number or "No mobile" }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ order.product_sku }}</strong><br />
+                    <span class="hint">{{ order.product_type }} (Qty: {{ order.quantity }})</span>
+                  </td>
+                  <td>
+                    {{ order.metal_option }} ({{ order.metal_tone }})<br />
+                    <span class="hint">{{ order.size_or_closure }}</span>
+                  </td>
+                  <td>{{ order.dispatch_date or "—" }}</td>
+                  <td>
+                    <span>{{ order.image_count }} img</span> &bull;
+                    <span>{{ order.video_count }} vid</span>
+                  </td>
+                  <td>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <button type="button" class="btn btn-outline view-order-btn" data-order-id="{{ order.order_id }}">
+                        Details
+                      </button>
+                      <a href="{{ url_for('download_work_pdf', order_id=order.order_id) }}" class="btn btn-primary">
+                        Work PDF
+                      </a>
+                      <a href="{{ url_for('download_our_pdf', order_id=order.order_id) }}" class="btn btn-outline">
+                        Our PDF
+                      </a>
+                      <button type="button" class="btn btn-danger delete-order-btn"
+                        data-order-id="{{ order.order_id }}">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 28px; color: #6b7280;">
+                    No orders found.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {% set has_filter = (date_range or date_from or date_to) and stone_type and orders|length > 0 %}
+        <section id="stoneSummaryCard" class="card{{ '' if has_filter else ' hidden' }}" style="margin-top:16px;">
+          <h2 class="card-title">Filtered Stone Summary (Center &amp; Side Stones)</h2>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Order No.</th>
+                  <th>Customer Name</th>
+                  <th>Center Stone (Size / Carat / Qty / Color / Shape)</th>
+                  <th>Side Stone (Carat / Size / Color / Qty / Shape)</th>
+                </tr>
+              </thead>
+              <tbody id="stoneSummaryBody">
+                {% for order in orders %}
+                <tr>
+                  <td><span class="order-id-pill">{{ order.order_id }}</span></td>
+                  <td><strong>{{ order.customer_name }}</strong></td>
+                  <td>
+                    {% set ns = namespace(found=false) %}
+                    {% for s in order.stone_details %}
+                    {% if (s.stone_category or 'Center Stone') != 'Side Stone' and (not stone_type or (s.stone_type or
+                    '')|lower == stone_type|lower) %}
+                    {% set ns.found = true %}
+                    <div style="margin-bottom:3px;font-size:12.5px;">
+                      <strong>{{ s.stone_type or '—' }}</strong>:
+                      Size {{ s.size_mm or '—' }} |
+                      Carat {{ s.carat_weight or '—' }} |
+                      Qty {{ s.quantity or '—' }} |
+                      Color {{ s.color or '—' }} |
+                      Shape {{ s.shape or '—' }}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if not ns.found %}<span class="hint">—</span>{% endif %}
+                  </td>
+                  <td>
+                    {% set ns2 = namespace(found=false) %}
+                    {% for s in order.stone_details %}
+                    {% if s.stone_category == 'Side Stone' %}
+                    {% set ns2.found = true %}
+                    <div style="margin-bottom:3px;font-size:12.5px;">
+                      Carat {{ s.carat_weight or '—' }} |
+                      Size {{ s.size_mm or '—' }} |
+                      Color {{ s.color or '—' }} |
+                      Qty {{ s.quantity or '—' }} |
+                      Shape {{ s.shape or '—' }}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if not ns2.found %}<span class="hint">—</span>{% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" style="text-align:center;padding:20px;color:#6b7280;">No matching orders.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 36px;"><input type="checkbox" id="selectAllOrders" title="Select all" /></th>
-              <th>Order ID</th>
-              <th>Customer</th>
-              <th>Product &amp; SKU</th>
-              <th>Metal &amp; Size</th>
-              <th>Dispatch Date</th>
-              <th>Media</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="ordersTableBody">
-            {% for order in orders %}
-            <tr>
-              <td>
-                <input
-                  type="checkbox"
-                  class="order-select-cb"
-                  value="{{ order.order_id }}"
-                  aria-label="Select {{ order.order_id }}"
-                />
-              </td>
-              <td><span class="order-id-pill">{{ order.order_id }}</span></td>
-              <td>
-                <strong>{{ order.customer_name }}</strong><br />
-                <span class="hint">{{ order.mobile_number or "No mobile" }}</span>
-              </td>
-              <td>
-                <strong>{{ order.product_sku }}</strong><br />
-                <span class="hint">{{ order.product_type }} (Qty: {{ order.quantity }})</span>
-              </td>
-              <td>
-                {{ order.metal_option }} ({{ order.metal_tone }})<br />
-                <span class="hint">{{ order.size_or_closure }}</span>
-              </td>
-              <td>{{ order.dispatch_date or "—" }}</td>
-              <td>
-                <span>{{ order.image_count }} img</span> &bull;
-                <span>{{ order.video_count }} vid</span>
-              </td>
-              <td>
-                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                  <button
-                    type="button"
-                    class="btn btn-outline view-order-btn"
-                    data-order-id="{{ order.order_id }}"
-                  >
-                    Details
-                  </button>
-                  <a
-                    href="{{ url_for('download_work_pdf', order_id=order.order_id) }}"
-                    class="btn btn-primary"
-                  >
-                    Work PDF
-                  </a>
-                  <a
-                    href="{{ url_for('download_our_pdf', order_id=order.order_id) }}"
-                    class="btn btn-outline"
-                  >
-                    Our PDF
-                  </a>
-                  <button
-                    type="button"
-                    class="btn btn-danger delete-order-btn"
-                    data-order-id="{{ order.order_id }}"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="8" style="text-align: center; padding: 28px; color: #6b7280;">
-                No orders found.
-              </td>
-            </tr>
+      <!-- Right-Hand Side Filter Panel -->
+      <aside class="card" style="position:sticky;top:82px;">
+        <h2 class="card-title" style="margin-bottom:12px;">Filter Orders</h2>
+
+        <div class="field" style="margin-bottom:14px;">
+          <label for="dateRangeFilter">Date Filter</label>
+          <select id="dateRangeFilter">
+            <option value="" {{ "selected" if not date_range else "" }}>All Dates</option>
+            <option value="today" {{ "selected" if date_range=="today" else "" }}>Today</option>
+            <option value="yesterday" {{ "selected" if date_range=="yesterday" else "" }}>Yesterday</option>
+            <option value="last_3_days" {{ "selected" if date_range=="last_3_days" else "" }}>Last 3 Days</option>
+            <option value="last_7_days" {{ "selected" if date_range=="last_7_days" else "" }}>Last 7 Days</option>
+            <option value="this_month" {{ "selected" if date_range=="this_month" else "" }}>This Month</option>
+            <option value="this_year" {{ "selected" if date_range=="this_year" else "" }}>This Year</option>
+            <option value="custom" {{ "selected" if date_range=="custom" else "" }}>Custom Date Range</option>
+          </select>
+        </div>
+
+        <div id="customDateRangeBox" class="{{ '' if date_range == 'custom' else 'hidden' }}"
+          style="margin-bottom:14px;">
+          <div class="field" style="margin-bottom:8px;">
+            <label for="dateFromFilter">From Date</label>
+            <input type="date" id="dateFromFilter" value="{{ date_from }}" />
+          </div>
+          <div class="field">
+            <label for="dateToFilter">To Date</label>
+            <input type="date" id="dateToFilter" value="{{ date_to }}" />
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:16px;">
+          <label for="stoneTypeFilter">Center Stone Type</label>
+          <select id="stoneTypeFilter">
+            <option value="">All Stone Types</option>
+            {% for st in stone_types %}
+            <option value="{{ st }}" {{ "selected" if stone_type==st else "" }}>{{ st }}</option>
             {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" id="applyFiltersBtn" class="btn btn-primary" style="flex:1;">Apply Filters</button>
+          <button type="button" id="resetFiltersBtn" class="btn btn-outline">Reset</button>
+        </div>
+      </aside>
+    </div>
   </main>
 
   <div id="orderModal" class="modal-backdrop" role="dialog" aria-modal="true">
@@ -156,4 +250,5 @@
 
   <script src="{{ url_for('static', filename='js/orders_history.js') }}"></script>
 </body>
+
 </html>

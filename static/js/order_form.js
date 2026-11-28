@@ -344,6 +344,7 @@
       </div>
     `;
 
+    const categorySelect = row.querySelector(".stone-category");
     const caratSelect = row.querySelector(".stone-carat-select");
     const caratInput = row.querySelector(".stone-carat");
     const sizeSelect = row.querySelector(".stone-size-select");
@@ -354,6 +355,10 @@
     const shapeSelect = row.querySelector(".stone-shape");
     const customShapeInput = row.querySelector(".stone-shape-custom");
 
+    function isSideStone() {
+      return categorySelect.value === "Side Stone";
+    }
+
     function updateIgiVisibility() {
       const showIgi = parseCaratNum(caratInput.value) >= 1;
       igiField.classList.toggle("hidden", !showIgi);
@@ -363,6 +368,17 @@
     }
 
     function populateChartDropdowns() {
+      if (isSideStone()) {
+        caratSelect.classList.add("hidden");
+        sizeSelect.classList.add("hidden");
+        caratInput.classList.remove("hidden");
+        sizeInput.classList.remove("hidden");
+        return;
+      }
+
+      caratSelect.classList.remove("hidden");
+      sizeSelect.classList.remove("hidden");
+
       const chart = window.DOD_STONE_CHART || {};
       const shape = shapeSelect.value;
       const entries = chart[shape] || [];
@@ -426,6 +442,7 @@
     }
 
     function autoCalculateSizeFromChart() {
+      if (isSideStone()) return;
       if (sizeSelect.value === "__custom__") return;
       if (!window.lookupStoneSizeByCarat) return;
       const match = window.lookupStoneSizeByCarat(
@@ -439,6 +456,11 @@
         sizeInput.classList.add("hidden");
       }
     }
+
+    categorySelect.addEventListener("change", () => {
+      populateChartDropdowns();
+      autoCalculateSizeFromChart();
+    });
 
     caratSelect.addEventListener("change", () => {
       if (caratSelect.value === "__custom__") {

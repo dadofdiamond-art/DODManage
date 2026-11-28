@@ -12,6 +12,15 @@
   const modalTitle = document.getElementById("modalTitle");
   const modalBody = document.getElementById("modalBody");
   const closeModalBtn = document.getElementById("closeModalBtn");
+  const stoneSummaryCard = document.getElementById("stoneSummaryCard");
+  const stoneSummaryBody = document.getElementById("stoneSummaryBody");
+  const dateRangeFilter = document.getElementById("dateRangeFilter");
+  const customDateRangeBox = document.getElementById("customDateRangeBox");
+  const dateFromFilter = document.getElementById("dateFromFilter");
+  const dateToFilter = document.getElementById("dateToFilter");
+  const stoneTypeFilter = document.getElementById("stoneTypeFilter");
+  const applyFiltersBtn = document.getElementById("applyFiltersBtn");
+  const resetFiltersBtn = document.getElementById("resetFiltersBtn");
 
   function getSelectedOrderIds() {
     return Array.from(tbody.querySelectorAll(".order-select-cb:checked")).map((cb) => cb.value);
@@ -91,12 +100,141 @@
       )
       .join("");
     syncBulkDeleteButton();
+    renderStoneSummaryRows(orders);
+  }
+
+  function renderStoneSummaryRows(orders) {
+    if (!stoneSummaryBody) return;
+    const selectedStoneType = (stoneTypeFilter ? stoneTypeFilter.value : "").trim().toLowerCase();
+    const hasBothFilters = Boolean(
+      (dateRangeFilter && dateRangeFilter.value) &&
+      selectedStoneType
+    );
+
+    if (!hasBothFilters || !orders.length) {
+      if (stoneSummaryCard) stoneSummaryCard.classList.add("hidden");
+      stoneSummaryBody.innerHTML = "";
+      return;
+    }
+
+    const rowsHtml = orders
+      .map((o) => {
+        const stones = o.stone_details || [];
+        const centerStones = stones.filter(
+          (s) =>
+            (s.stone_category || "Center Stone") !== "Side Stone" &&
+            String(s.stone_type || "").trim().toLowerCase() === selectedStoneType
+        );
+        if (!centerStones.length) return "";
+        const sideStones = stones.filter((s) => s.stone_category === "Side Stone");
+
+        const centerHtml = centerStones
+          .map(
+            (s) => `
+          <div style="margin-bottom:3px;font-size:12.5px;">
+            <strong>${escapeHtml(s.stone_type || "—")}</strong>:
+            Size ${escapeHtml(s.size_mm || "—")} |
+            Carat ${escapeHtml(s.carat_weight || "—")} |
+            Qty ${escapeHtml(s.quantity || "—")} |
+            Color ${escapeHtml(s.color || "—")} |
+            Shape ${escapeHtml(s.shape || "—")}
+          </div>`
+          )
+          .join("");
+
+        const sideHtml = sideStones.length
+          ? sideStones
+              .map(
+                (s) => `
+              <div style="margin-bottom:3px;font-size:12.5px;">
+                Carat ${escapeHtml(s.carat_weight || "—")} |
+                Size ${escapeHtml(s.size_mm || "—")} |
+                Color ${escapeHtml(s.color || "—")} |
+                Qty ${escapeHtml(s.quantity || "—")} |
+                Shape ${escapeHtml(s.shape || "—")}
+              </div>`
+              )
+              .join("")
+          : `<span class="hint">—</span>`;
+
+        return `
+          <tr>
+            <td><span class="order-id-pill">${escapeHtml(o.order_id)}</span></td>
+            <td><strong>${escapeHtml(o.customer_name)}</strong></td>
+            <td>${centerHtml}</td>
+            <td>${sideHtml}</td>
+          </tr>`;
+      })
+      .filter(Boolean)
+      .join("");
+
+    if (stoneSummaryCard) {
+      stoneSummaryCard.classList.toggle("hidden", !rowsHtml);
+    }
+    stoneSummaryBody.innerHTML = rowsHtml;
   }
 
   async function runSearch(query) {
-    const resp = await fetch(`/api/orders?q=${encodeURIComponent(query)}`);
+    if (stoneSummaryCard) {
+      stoneSummaryCard.classList.add("hidden");
+    }
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (dateRangeFilter && dateRangeFilter.value) {
+      params.set("date_range", dateRangeFilter.value);
+      if (dateRangeFilter.value === "custom") {
+        if (dateFromFilter && dateFromFilter.value) params.set("date_from", dateFromFilter.value);
+        if (dateToFilter && dateToFilter.value) params.set("date_to", dateToFilter.value);
+      }
+    }
+    if (stoneTypeFilter && stoneTypeFilter.value) {
+      params.set("stone_type", stoneTypeFilter.value);
+    }
+
+    const resp = await fetch(`/api/orders?${params.toString()}`);
     const data = await resp.json();
     renderTableRows(data.orders || []);
+  }
+
+  if (dateRangeFilter) {
+    dateRangeFilter.addEventListener("change", () => {
+      if (stoneSummaryCard) {
+        stoneSummaryCard.classList.add("hidden");
+      }
+      if (customDateRangeBox) {
+        customDateRangeBox.classList.toggle("hidden", dateRangeFilter.value !== "custom");
+      }
+      if (dateRangeFilter.value !== "custom") {
+        runSearch(searchInput.value.trim());
+      }
+    });
+  }
+  if (dateFromFilter) {
+    dateFromFilter.addEventListener("change", () => {
+      if (stoneSummaryCard) stoneSummaryCard.classList.add("hidden");
+    });
+  }
+  if (dateToFilter) {
+    dateToFilter.addEventListener("change", () => {
+      if (stoneSummaryCard) stoneSummaryCard.classList.add("hidden");
+    });
+  }
+  if (stoneTypeFilter) {
+    stoneTypeFilter.addEventListener("change", () => runSearch(searchInput.value.trim()));
+  }
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener("click", () => runSearch(searchInput.value.trim()));
+  }
+  if (resetFiltersBtn) {
+    resetFiltersBtn.addEventListener("click", () => {
+      if (dateRangeFilter) dateRangeFilter.value = "";
+      if (dateFromFilter) dateFromFilter.value = "";
+      if (dateToFilter) dateToFilter.value = "";
+      if (customDateRangeBox) customDateRangeBox.classList.add("hidden");
+      if (stoneTypeFilter) stoneTypeFilter.value = "";
+      searchInput.value = "";
+      runSearch("");
+    });
   }
 
   searchBtn.addEventListener("click", () => runSearch(searchInput.value.trim()));
@@ -371,6 +509,35 @@
           <button type="button" id="editAddStoneBtn" class="btn btn-outline">+ Add Stone</button>
         </div>
         <div id="editStonesContainer">${stones.map((s, i) => renderEditStoneRow(s, i)).join("")}</div>
+        <div style="margin:12px 0;">
+          <h3 style="margin:0 0 6px;color:#3F070C;font-size:14px;">Images &amp; Videos</h3>
+          ${
+            (order.media || []).length
+              ? `<div style="margin-bottom:8px;">
+                  ${(order.media || [])
+                    .map((m) => {
+                      const fname = (m.local_temp_path || "").split(/[\\/]/).pop() || m.media_type;
+                      return `
+                        <label style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;">
+                          <input type="checkbox" class="edit-remove-media-cb" value="${m.id}" />
+                          <span>Remove <strong>${escapeHtml(m.media_type.toUpperCase())}</strong>: ${escapeHtml(fname)}</span>
+                        </label>`;
+                    })
+                    .join("")}
+                </div>`
+              : `<p class="hint" style="margin-bottom:8px;">No existing media attached.</p>`
+          }
+          <div class="grid-2">
+            <div class="field">
+              <label for="edit_images">Add Images (.jpg, .jpeg, .png, .webp)</label>
+              <input type="file" id="edit_images" accept=".jpg,.jpeg,.png,.webp" multiple />
+            </div>
+            <div class="field">
+              <label for="edit_videos">Add Videos (.mp4, .mov)</label>
+              <input type="file" id="edit_videos" accept=".mp4,.mov" multiple />
+            </div>
+          </div>
+        </div>
         <div class="form-actions" style="margin-top:14px;">
           <button type="button" id="cancelEditOrderBtn" class="btn btn-outline">Cancel</button>
           <button type="submit" class="btn btn-primary">Save Changes &amp; Update PDF</button>
@@ -404,33 +571,46 @@
         quantity: r.querySelector(".edit-stone-qty").value.trim(),
         other_remark: r.querySelector(".edit-stone-remark").value.trim()
       }));
-      const body = {
-        customer_name: document.getElementById("edit_customer_name").value.trim(),
-        mobile_number: document.getElementById("edit_mobile_number").value.trim(),
-        email: document.getElementById("edit_email").value.trim(),
-        living_address: document.getElementById("edit_living_address").value.trim(),
-        dispatch_date: document.getElementById("edit_dispatch_date").value.trim(),
-        order_placing_date: document.getElementById("edit_order_placing_date").value.trim(),
-        factory_receiving_date: document.getElementById("edit_factory_receiving_date").value.trim(),
-        product_type: document.getElementById("edit_product_type").value.trim(),
-        product_sku: document.getElementById("edit_product_sku").value.trim(),
-        quantity: Number(document.getElementById("edit_quantity").value || 1),
-        metal_option: document.getElementById("edit_metal_option").value.trim(),
-        metal_tone: document.getElementById("edit_metal_tone").value.trim(),
-        band_tone: document.getElementById("edit_band_tone").value.trim(),
-        prong_tone: document.getElementById("edit_prong_tone").value.trim(),
-        basket_tone: document.getElementById("edit_basket_tone").value.trim(),
-        cad_image_no: document.getElementById("edit_cad_image_no").value.trim(),
-        size_or_closure: document.getElementById("edit_size_or_closure").value.trim(),
-        engraving: document.getElementById("edit_engraving").value.trim(),
-        side_engraving: document.getElementById("edit_side_engraving").value.trim(),
-        special_requirements: document.getElementById("edit_special_requirements").value.trim(),
-        stone_details: updatedStones
-      };
+      const removeMediaIds = Array.from(
+        document.querySelectorAll(".edit-remove-media-cb:checked")
+      ).map((cb) => Number(cb.value));
+
+      const formData = new FormData();
+      formData.append("customer_name", document.getElementById("edit_customer_name").value.trim());
+      formData.append("mobile_number", document.getElementById("edit_mobile_number").value.trim());
+      formData.append("email", document.getElementById("edit_email").value.trim());
+      formData.append("living_address", document.getElementById("edit_living_address").value.trim());
+      formData.append("dispatch_date", document.getElementById("edit_dispatch_date").value.trim());
+      formData.append("order_placing_date", document.getElementById("edit_order_placing_date").value.trim());
+      formData.append("factory_receiving_date", document.getElementById("edit_factory_receiving_date").value.trim());
+      formData.append("product_type", document.getElementById("edit_product_type").value.trim());
+      formData.append("product_sku", document.getElementById("edit_product_sku").value.trim());
+      formData.append("quantity", String(Number(document.getElementById("edit_quantity").value || 1)));
+      formData.append("metal_option", document.getElementById("edit_metal_option").value.trim());
+      formData.append("metal_tone", document.getElementById("edit_metal_tone").value.trim());
+      formData.append("band_tone", document.getElementById("edit_band_tone").value.trim());
+      formData.append("prong_tone", document.getElementById("edit_prong_tone").value.trim());
+      formData.append("basket_tone", document.getElementById("edit_basket_tone").value.trim());
+      formData.append("cad_image_no", document.getElementById("edit_cad_image_no").value.trim());
+      formData.append("size_or_closure", document.getElementById("edit_size_or_closure").value.trim());
+      formData.append("engraving", document.getElementById("edit_engraving").value.trim());
+      formData.append("side_engraving", document.getElementById("edit_side_engraving").value.trim());
+      formData.append("special_requirements", document.getElementById("edit_special_requirements").value.trim());
+      formData.append("stone_details_json", JSON.stringify(updatedStones));
+      formData.append("remove_media_ids", JSON.stringify(removeMediaIds));
+
+      const editImgInput = document.getElementById("edit_images");
+      if (editImgInput && editImgInput.files) {
+        Array.from(editImgInput.files).forEach((f) => formData.append("images", f));
+      }
+      const editVidInput = document.getElementById("edit_videos");
+      if (editVidInput && editVidInput.files) {
+        Array.from(editVidInput.files).forEach((f) => formData.append("videos", f));
+      }
+
       const resp = await fetch(`/api/orders/${encodeURIComponent(order.order_id)}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: formData
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) {

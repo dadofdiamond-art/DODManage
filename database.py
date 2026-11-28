@@ -414,6 +414,59 @@ def update_order(
     return get_order_by_id(canonical_id, db_path=db_path)
 
 
+def add_order_media(
+    order_id: str,
+    media_list: list[dict[str, Any]],
+    db_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """Insert additional media rows for an existing order."""
+    if not media_list:
+        return []
+    with get_connection(db_path) as conn:
+        for media in media_list:
+            conn.execute(
+                """
+                INSERT INTO order_media (
+                    order_id, media_type, local_temp_path, drive_file_id, drive_view_link
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    order_id,
+                    media["media_type"],
+                    media.get("local_temp_path"),
+                    media.get("drive_file_id"),
+                    media.get("drive_view_link"),
+                ),
+            )
+    updated = get_order_by_id(order_id, db_path=db_path)
+    return updated["media"] if updated else []
+
+
+def delete_order_media_by_ids(
+    order_id: str,
+    media_ids: list[int],
+    db_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """Delete specific order_media rows by ID for an order and return the deleted rows."""
+    clean_ids = [int(mid) for mid in media_ids if str(mid).isdigit()]
+    if not clean_ids:
+        return []
+    placeholders = ",".join("?" for _ in clean_ids)
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT id, order_id, media_type, local_temp_path, drive_file_id, drive_view_link "
+            f"FROM order_media WHERE order_id = ? AND id IN ({placeholders})",
+            (order_id, *clean_ids),
+        ).fetchall()
+        deleted = [dict(r) for r in rows]
+        if deleted:
+            conn.execute(
+                f"DELETE FROM order_media WHERE order_id = ? AND id IN ({placeholders})",
+                (order_id, *clean_ids),
+            )
+        return deleted
+
+
 def list_all_orders(search_query: str | None = None, db_path: str | None = None) -> list[dict[str, Any]]:
     """List orders for the history dashboard, optionally filtering by Order ID, SKU, or Customer Name."""
     init_db(db_path)

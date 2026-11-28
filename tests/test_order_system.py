@@ -776,3 +776,78 @@ def test_extended_specs_stone_tables_side_engraving_and_edit_order(app_client):
     chart_js = client.get("/static/js/stone_size_chart.js").get_data(as_text=True)
     assert "lookupStoneSizeByCarat" in chart_js
     assert '"7X10"' in chart_js
+    assert "Nearest greater carat weight" in chart_js
+
+    # Verify /orders filter panel and stone summary table render
+    orders_html = client.get("/orders").get_data(as_text=True)
+    assert "Filter Orders" in orders_html
+    assert "Last 3 Days" in orders_html
+    assert "Filtered Stone Summary" in orders_html
+
+    # Verify date_range and stone_type filters on /api/orders
+    from datetime import date, timedelta
+
+    today_str = date.today().isoformat()
+    yesterday_str = (date.today() - timedelta(days=1)).isoformat()
+    # Update DODEXT01 placing date to today and check today + Lab Diamond filter
+    edit_media_resp = client.put(
+        "/api/orders/DODEXT01",
+        data={
+            "customer_name": "Meera Patel Updated",
+            "dispatch_date": "2026-12-30",
+            "order_placing_date": today_str,
+            "factory_receiving_date": "2026-12-05",
+            "product_type": "Engagement Ring",
+            "product_sku": "DOD-EXT-02",
+            "quantity": "2",
+            "metal_option": "950 Platinum",
+            "metal_tone": "White",
+            "band_tone": "White",
+            "prong_tone": "White",
+            "basket_tone": "White",
+            "cad_image_no": "CAD-779",
+            "size_or_closure": "US 7",
+            "engraving": "M ♥ K 2026",
+            "special_requirements": "Updated",
+            "stone_details_json": json.dumps(stones),
+            "images": [(io.BytesIO(_make_png_bytes()), "added_edit.png")],
+            "videos": [(io.BytesIO(b"\x00\x00\x00\x18ftypmp42" + b"0" * 512), "added_vid.mp4")],
+        },
+        content_type="multipart/form-data",
+    )
+    assert edit_media_resp.status_code == 200
+    edited_order = edit_media_resp.get_json()["order"]
+    assert len(edited_order["images"]) == 1
+    assert len(edited_order["videos"]) == 1
+
+    # Now remove that image via remove_media_ids
+    img_id = edited_order["images"][0]["id"]
+    rm_resp = client.put(
+        "/api/orders/DODEXT01",
+        data={
+            "customer_name": "Meera Patel Updated",
+            "product_type": "Engagement Ring",
+            "product_sku": "DOD-EXT-02",
+            "quantity": "2",
+            "metal_option": "950 Platinum",
+            "metal_tone": "White",
+            "size_or_closure": "US 7",
+            "order_placing_date": today_str,
+            "stone_details_json": json.dumps(stones),
+            "remove_media_ids": json.dumps([img_id]),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rm_resp.status_code == 200
+    assert len(rm_resp.get_json()["order"]["images"]) == 0
+    assert len(rm_resp.get_json()["order"]["videos"]) == 1
+
+    today_filter = client.get(f"/api/orders?date_range=today&stone_type=Lab+Diamond").get_json()
+    assert today_filter["count"] == 1
+    assert today_filter["orders"][0]["order_id"] == "DODEXT01"
+
+    wrong_stone = client.get(f"/api/orders?date_range=today&stone_type=Moissanite").get_json()
+    assert wrong_stone["count"] == 0
+
+    yest_filter = client.get(f"/api/orders?date_range=custom&date_from={yesterday_str}&date_to={yesterday_str}").get_json()
+    assert yest_filter["count"] == 0

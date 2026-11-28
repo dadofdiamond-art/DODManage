@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+from datetime import date, timedelta
 from typing import Any
 
 from dotenv import load_dotenv
@@ -23,7 +24,9 @@ from auth_setup import (
     verify_user,
 )
 from database import (
+    add_order_media,
     delete_order,
+    delete_order_media_by_ids,
     get_order_by_id,
     get_workshop_order_by_id,
     init_db,
@@ -235,15 +238,101 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             max_video_mb=app.config["MAX_VIDEO_SIZE_MB"],
         )
 
+    def _parse_order_date(order: dict[str, Any]) -> date | None:
+        raw = (order.get("order_placing_date") or "").strip()
+        if not raw and order.get("created_at"):
+            raw = str(order["created_at"]).strip()[:10]
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw[:10])
+        except ValueError:
+            return None
+
+    def _filter_orders(
+        orders: list[dict[str, Any]],
+        date_range: str = "",
+        date_from: str = "",
+        date_to: str = "",
+        stone_type: str = "",
+    ) -> list[dict[str, Any]]:
+        today = date.today()
+        d_from: date | None = None
+        d_to: date | None = None
+
+        if date_range == "today":
+            d_from = d_to = today
+        elif date_range == "yesterday":
+            d_from = d_to = today - timedelta(days=1)
+        elif date_range == "last_3_days":
+            d_from = today - timedelta(days=2)
+            d_to = today
+        elif date_range == "last_7_days":
+            d_from = today - timedelta(days=6)
+            d_to = today
+        elif date_range == "this_month":
+            d_from = today.replace(day=1)
+            d_to = today
+        elif date_range == "this_year":
+            d_from = today.replace(month=1, day=1)
+            d_to = today
+        elif date_range == "custom":
+            if date_from:
+                try:
+                    d_from = date.fromisoformat(date_from)
+                except ValueError:
+                    d_from = None
+            if date_to:
+                try:
+                    d_to = date.fromisoformat(date_to)
+                except ValueError:
+                    d_to = None
+
+        filtered: list[dict[str, Any]] = []
+        stone_filter = stone_type.strip().lower()
+        for o in orders:
+            if d_from or d_to:
+                o_date = _parse_order_date(o)
+                if o_date is None:
+                    continue
+                if d_from and o_date < d_from:
+                    continue
+                if d_to and o_date > d_to:
+                    continue
+
+            if stone_filter:
+                stones = o.get("stone_details") or []
+                has_center_match = any(
+                    (s.get("stone_category") or "Center Stone") != "Side Stone"
+                    and str(s.get("stone_type") or "").strip().lower() == stone_filter
+                    for s in stones
+                )
+                if not has_center_match:
+                    continue
+
+            filtered.append(o)
+        return filtered
+
     @app.route("/orders", methods=["GET"])
     @login_required
     def orders_page():
         query = request.args.get("q", "").strip()
+        date_range = request.args.get("date_range", "").strip()
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        stone_type = request.args.get("stone_type", "").strip()
+
         orders = list_all_orders(search_query=query, db_path=app.config["DB_PATH"])
+        orders = _filter_orders(orders, date_range, date_from, date_to, stone_type)
         return render_template(
             "orders.html",
             orders=orders,
             search_query=query,
+            date_range=date_range,
+            date_from=date_from,
+            date_to=date_to,
+            stone_type=stone_type,
+            stone_types=STONE_TYPES,
             drive_status=get_drive_status(),
         )
 
@@ -271,7 +360,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     @login_required
     def api_list_orders():
         query = request.args.get("q", "").strip()
+        date_range = request.args.get("date_range", "").strip()
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        stone_type = request.args.get("stone_type", "").strip()
+
         orders = list_all_orders(search_query=query, db_path=app.config["DB_PATH"])
+        orders = _filter_orders(orders, date_range, date_from, date_to, stone_type)
         return jsonify({"orders": orders, "count": len(orders)})
 
     @app.route("/api/orders/<order_id>", methods=["GET"])
@@ -289,7 +384,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         if existing is None:
             return jsonify({"ok": False, "error": f"Order '{order_id}' not found."}), 404
 
-        payload = request.get_json(silent=True) or {}
+        is_multipart = (request.content_type or "").startswith("multipart/form-data")
+        if is_multipart:
+            payload = request.form
+        else:
+            payload = request.get_json(silent=True) or {}
+
         customer_name = str(payload.get("customer_name") or "").strip()
         product_type = str(payload.get("product_type") or "").strip()
         product_sku = str(payload.get("product_sku") or "").strip()
@@ -319,15 +419,132 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             quantity = 1
             errors.append("Quantity must be a valid integer.")
 
-        raw_stones = payload.get("stone_details")
-        if raw_stones is None:
-            raw_stones = (existing.get("item") or {}).get("stone_details") or []
+        if is_multipart:
+            raw_stones_str = payload.get("stone_details_json")
+            if raw_stones_str is not None:
+                try:
+                    raw_stones = json.loads(raw_stones_str)
+                except json.JSONDecodeError:
+                    raw_stones = []
+                    errors.append("Invalid stone_details_json payload.")
+            else:
+                raw_stones = (existing.get("item") or {}).get("stone_details") or []
+        else:
+            raw_stones = payload.get("stone_details")
+            if raw_stones is None:
+                raw_stones = (existing.get("item") or {}).get("stone_details") or []
         if not isinstance(raw_stones, list):
             errors.append("Invalid stone_details payload.")
             raw_stones = []
 
+        # Handle media removals & additions
+        remove_media_ids: list[int] = []
+        raw_remove = payload.get("remove_media_ids")
+        if raw_remove:
+            if isinstance(raw_remove, str):
+                try:
+                    parsed_rm = json.loads(raw_remove)
+                    if isinstance(parsed_rm, list):
+                        remove_media_ids = [int(x) for x in parsed_rm if str(x).isdigit()]
+                except json.JSONDecodeError:
+                    pass
+            elif isinstance(raw_remove, list):
+                remove_media_ids = [int(x) for x in raw_remove if str(x).isdigit()]
+
+        new_images = [f for f in request.files.getlist("images") if f and f.filename] if is_multipart else []
+        new_videos = [f for f in request.files.getlist("videos") if f and f.filename] if is_multipart else []
+
+        kept_images = [
+            m for m in existing.get("images", []) if m["id"] not in remove_media_ids
+        ]
+        kept_videos = [
+            m for m in existing.get("videos", []) if m["id"] not in remove_media_ids
+        ]
+        if len(kept_images) + len(new_images) > MAX_IMAGES:
+            errors.append(f"Maximum {MAX_IMAGES} images allowed.")
+        if len(kept_videos) + len(new_videos) > MAX_VIDEOS:
+            errors.append(f"Maximum {MAX_VIDEOS} videos allowed.")
+
+        for img in new_images:
+            ext = os.path.splitext(img.filename)[1].lower()
+            if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                errors.append(f"Unsupported image format for '{img.filename}'.")
+
+        max_video_bytes = app.config["MAX_VIDEO_SIZE_MB"] * 1024 * 1024
+        for vid in new_videos:
+            ext = os.path.splitext(vid.filename)[1].lower()
+            if ext not in ALLOWED_VIDEO_EXTENSIONS:
+                errors.append(f"Unsupported video format for '{vid.filename}'.")
+            vid.stream.seek(0, os.SEEK_END)
+            size_bytes = vid.stream.tell()
+            vid.stream.seek(0)
+            if size_bytes > max_video_bytes:
+                errors.append(f"Video '{vid.filename}' exceeds the {app.config['MAX_VIDEO_SIZE_MB']} MB limit.")
+
         if errors:
             return jsonify({"ok": False, "errors": errors}), 400
+
+        canonical_id = existing["order_id"]
+        if remove_media_ids:
+            deleted_rows = delete_order_media_by_ids(
+                canonical_id, remove_media_ids, db_path=app.config["DB_PATH"]
+            )
+            for row in deleted_rows:
+                local_path = row.get("local_temp_path")
+                if local_path and os.path.isfile(local_path):
+                    try:
+                        os.remove(local_path)
+                    except OSError:
+                        pass
+
+        if new_images or new_videos:
+            order_upload_dir = os.path.join(app.config["UPLOAD_DIR"], canonical_id)
+            os.makedirs(order_upload_dir, exist_ok=True)
+            local_entries: list[dict[str, str]] = []
+            img_offset = len(existing.get("images", []))
+            for idx, img in enumerate(new_images, start=img_offset + 1):
+                safe_name = secure_filename(img.filename) or f"image_{idx}.jpg"
+                dest_name = f"img_{idx:02d}_{safe_name}"
+                dest_path = os.path.join(order_upload_dir, dest_name)
+                img.save(dest_path)
+                local_entries.append(
+                    {"media_type": "image", "local_temp_path": dest_path, "filename": dest_name}
+                )
+            vid_offset = len(existing.get("videos", []))
+            for idx, vid in enumerate(new_videos, start=vid_offset + 1):
+                safe_name = secure_filename(vid.filename) or f"video_{idx}.mp4"
+                dest_name = f"vid_{idx:02d}_{safe_name}"
+                dest_path = os.path.join(order_upload_dir, dest_name)
+                vid.save(dest_path)
+                local_entries.append(
+                    {"media_type": "video", "local_temp_path": dest_path, "filename": dest_name}
+                )
+
+            drive_status = get_drive_status()
+            if drive_status.get("configured"):
+                try:
+                    new_media_records = upload_order_media(canonical_id, local_entries)
+                except Exception:  # noqa: BLE001
+                    new_media_records = [
+                        {
+                            "media_type": e["media_type"],
+                            "local_temp_path": e["local_temp_path"],
+                            "drive_file_id": None,
+                            "drive_view_link": None,
+                        }
+                        for e in local_entries
+                    ]
+            else:
+                new_media_records = [
+                    {
+                        "media_type": e["media_type"],
+                        "local_temp_path": e["local_temp_path"],
+                        "drive_file_id": None,
+                        "drive_view_link": None,
+                    }
+                    for e in local_entries
+                ]
+            add_order_media(canonical_id, new_media_records, db_path=app.config["DB_PATH"])
 
         updated = update_order(
             order_id,
