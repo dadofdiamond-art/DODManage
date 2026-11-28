@@ -110,10 +110,16 @@
                     Details
                   </button>
                   <a
-                    href="{{ url_for('download_order_pdf', order_id=order.order_id) }}"
+                    href="{{ url_for('download_work_pdf', order_id=order.order_id) }}"
                     class="btn btn-primary"
                   >
-                    PDF
+                    Work PDF
+                  </a>
+                  <a
+                    href="{{ url_for('download_our_pdf', order_id=order.order_id) }}"
+                    class="btn btn-outline"
+                  >
+                    Our PDF
                   </a>
                   <button
                     type="button"

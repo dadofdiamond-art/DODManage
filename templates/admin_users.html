@@ -97,8 +97,11 @@
           </div>
           <div class="field">
             <label for="password">Temporary Password <span class="req">*</span></label>
-            <input type="password" id="password" name="password" minlength="6" required autocomplete="new-password"
-              placeholder="At least 6 characters" />
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="password" id="password" name="password" minlength="6" required autocomplete="new-password"
+                placeholder="At least 6 characters" style="flex:1;" />
+              <button type="button" class="btn btn-outline toggle-pw-btn" data-target="password">Show</button>
+            </div>
           </div>
         </div>
         <div class="form-actions" style="margin-top: 16px;">
@@ -117,6 +120,8 @@
               <th>Username</th>
               <th>Role</th>
               <th>Created At</th>
+              <th>Edit Username / Password</th>
+              <th>Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -128,6 +133,23 @@
                   <span class="role-badge role-{{ u.role }}">{{ u.role }}</span>
                 </td>
                 <td>{{ u.created_at }}</td>
+                <td>
+                  <form method="POST" action="{{ url_for('admin_edit_user', user_id=u.id) }}" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <input type="text" name="username" value="{{ u.username }}" minlength="3" required style="width:130px;padding:6px 8px;" aria-label="Username for {{ u.username }}" />
+                    <input type="password" id="edit_pw_{{ u.id }}" name="password" minlength="6" placeholder="New password (optional)" style="width:165px;padding:6px 8px;" aria-label="New password for {{ u.username }}" />
+                    <button type="button" class="btn btn-outline toggle-pw-btn" data-target="edit_pw_{{ u.id }}" style="padding:6px 10px;">Show</button>
+                    <button type="submit" class="btn btn-primary" style="padding:6px 12px;">Save</button>
+                  </form>
+                </td>
+                <td>
+                  {% if u.id != current_user_id %}
+                  <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}" onsubmit="return confirm('Delete user {{ u.username }}?');">
+                    <button type="submit" class="btn btn-danger" style="padding:6px 12px;">Delete</button>
+                  </form>
+                  {% else %}
+                  <span class="hint">(Current)</span>
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
@@ -135,6 +157,19 @@
       </div>
     </section>
   </main>
+  <script>
+    (function () {
+      document.addEventListener("click", (e) => {
+        const btn = e.target.closest(".toggle-pw-btn");
+        if (!btn) return;
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        const isHidden = input.type === "password";
+        input.type = isHidden ? "text" : "password";
+        btn.textContent = isHidden ? "Hide" : "Show";
+      });
+    })();
+  </script>
 </body>
 
 </html>

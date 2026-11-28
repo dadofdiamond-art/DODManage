@@ -66,6 +66,16 @@
           </div>
 
           <div class="field">
+            <label for="order_placing_date">Order Placing Date</label>
+            <input type="date" id="order_placing_date" name="order_placing_date" />
+          </div>
+
+          <div class="field">
+            <label for="factory_receiving_date">Factory Receiving Date</label>
+            <input type="date" id="factory_receiving_date" name="factory_receiving_date" />
+          </div>
+
+          <div class="field">
             <label for="customer_name">Customer Name <span class="req">*</span></label>
             <input type="text" id="customer_name" name="customer_name" placeholder="Full customer name" required />
           </div>
@@ -136,6 +146,41 @@
           </div>
 
           <div class="field">
+            <label for="band_tone">Band Tone</label>
+            <select id="band_tone" name="band_tone">
+              <option value="">Same as Metal Tone</option>
+              {% for tone in metal_tones %}
+              <option value="{{ tone }}">{{ tone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="prong_tone">Prong Tone</label>
+            <select id="prong_tone" name="prong_tone">
+              <option value="">Same as Metal Tone</option>
+              {% for tone in metal_tones %}
+              <option value="{{ tone }}">{{ tone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="basket_tone">Basket Tone</label>
+            <select id="basket_tone" name="basket_tone">
+              <option value="">Same as Metal Tone</option>
+              {% for tone in metal_tones %}
+              <option value="{{ tone }}">{{ tone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="cad_image_no">CAD Image No. <span class="hint">(Optional)</span></label>
+            <input type="text" id="cad_image_no" name="cad_image_no" placeholder="e.g. CAD-104" />
+          </div>
+
+          <div class="field">
             <label for="size_closure_select">Size / Closure <span class="req">*</span></label>
             <select id="size_closure_select" required></select>
             <input type="text" id="custom_size_closure" class="hidden"
@@ -143,10 +188,15 @@
             <input type="hidden" id="size_or_closure" name="size_or_closure" />
           </div>
 
-          <div class="field span-2">
-            <label for="engraving">Engraving Text <span class="hint">(Highlighted callout on PDF if
-                provided)</span></label>
+          <div class="field">
+            <label for="engraving">Center Engraving <span class="hint">(Optional)</span></label>
             <input type="text" id="engraving" name="engraving" placeholder="e.g. Forever &amp; Always ♥ 25.11.2026" />
+          </div>
+
+          <div class="field">
+            <label for="side_engraving">Side Engraving <span class="hint">(Fixed DOD + Metal)</span></label>
+            <input type="text" id="side_engraving" name="side_engraving" value="DOD 925S" readonly
+              style="background:#f3f4f6;font-weight:600;" />
           </div>
 
           <div class="field span-2">
@@ -214,6 +264,7 @@
       stoneShapes: {{ stone_shapes | tojson }}
     };
   </script>
+  <script src="{{ url_for('static', filename='js/stone_size_chart.js') }}"></script>
   <script src="{{ url_for('static', filename='js/order_form.js') }}"></script>
 </body>
 

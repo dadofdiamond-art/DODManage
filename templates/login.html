@@ -12,22 +12,26 @@
       margin: 64px auto;
       padding: 0 16px;
     }
+
     .flash-list {
       list-style: none;
       padding: 0;
       margin: 0 0 16px 0;
     }
+
     .flash-item {
       padding: 10px 14px;
       border-radius: var(--radius-sm);
       font-size: 0.9rem;
       margin-bottom: 8px;
     }
+
     .flash-error {
       background: var(--error-bg);
       color: var(--error);
       border: 1px solid #fecaca;
     }
+
     .flash-success {
       background: var(--success-bg);
       color: var(--success);
@@ -43,7 +47,7 @@
         <div class="brand-mark">DOD</div>
         <div>
           <div class="brand-title">Dad Of Diamond</div>
-          <div class="brand-sub">Order Entry &amp; Workshop System</div>
+          <div class="brand-sub">Order Entry</div>
         </div>
       </div>
     </div>
@@ -54,13 +58,13 @@
       <h2 class="card-title">Sign In</h2>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <ul class="flash-list">
-            {% for category, msg in messages %}
-              <li class="flash-item flash-{{ category }}">{{ msg }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
+      {% if messages %}
+      <ul class="flash-list">
+        {% for category, msg in messages %}
+        <li class="flash-item flash-{{ category }}">{{ msg }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       {% endwith %}
 
       <form method="POST" action="{{ url_for('login') }}">
@@ -70,12 +74,28 @@
         </div>
         <div class="field" style="margin-bottom: 18px;">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" required autocomplete="current-password" />
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="password" id="password" name="password" required autocomplete="current-password" style="flex:1;" />
+            <button type="button" id="toggleLoginPwBtn" class="btn btn-outline" style="white-space:nowrap;">Show</button>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
       </form>
     </section>
   </main>
+  <script>
+    (function () {
+      const pwInput = document.getElementById("password");
+      const toggleBtn = document.getElementById("toggleLoginPwBtn");
+      if (pwInput && toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+          const isHidden = pwInput.type === "password";
+          pwInput.type = isHidden ? "text" : "password";
+          toggleBtn.textContent = isHidden ? "Hide" : "Show";
+        });
+      }
+    })();
+  </script>
 </body>
 
 </html>

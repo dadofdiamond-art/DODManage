@@ -15,9 +15,11 @@ from werkzeug.utils import secure_filename
 from auth_setup import (
     admin_required,
     create_standard_user,
+    delete_user,
     init_auth_tables,
     list_users,
     login_required,
+    update_user,
     verify_user,
 )
 from database import (
@@ -28,9 +30,10 @@ from database import (
     list_all_orders,
     order_exists,
     save_order,
+    update_order,
 )
 from drive_uploader import get_drive_status, upload_order_media
-from pdf_generator import generate_order_pdf
+from pdf_generator import generate_both_order_pdfs, generate_order_pdf, get_pdf_filename
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -52,6 +55,51 @@ METAL_OPTIONS = [
     "950 Platinum",
     "Custom Metal",
 ]
+
+SIDE_ENGRAVING_MAP = {
+    "925 Sterling Silver": "DOD 925S",
+    "10K Solid Gold": "DOD 10KT",
+    "14K Solid Gold": "DOD 14KT",
+    "18K Solid Gold": "DOD 18KT",
+    "950 Platinum": "DOD 950P",
+}
+
+
+def resolve_side_engraving(metal_option: str, explicit_value: str | None = None) -> str:
+    """Return the fixed DOD + metal hallmark side engraving."""
+    cleaned = (explicit_value or "").strip()
+    if cleaned:
+        return cleaned
+    return SIDE_ENGRAVING_MAP.get((metal_option or "").strip(), "DOD")
+
+
+def clean_stones_payload(stones: list[Any]) -> list[dict[str, str]]:
+    """Normalize stone detail entries including category, clarity, IGI cert, and remarks."""
+    cleaned: list[dict[str, str]] = []
+    fields = (
+        "stone_category",
+        "stone_type",
+        "shape",
+        "size_mm",
+        "carat_weight",
+        "color",
+        "clarity",
+        "igi_certificate",
+        "quantity",
+        "other_remark",
+    )
+    for s in stones:
+        if not isinstance(s, dict):
+            continue
+        if not any(str(s.get(k) or "").strip() for k in fields[1:]):
+            continue
+        category = str(s.get("stone_category") or "Center Stone").strip()
+        if category not in ("Center Stone", "Side Stone"):
+            category = "Center Stone"
+        entry = {k: str(s.get(k) or "").strip() for k in fields}
+        entry["stone_category"] = category
+        cleaned.append(entry)
+    return cleaned
 
 METAL_TONES = ["White", "Yellow", "Rose", "Two-Tone"]
 
@@ -76,6 +124,12 @@ STONE_SHAPES = [
     "Heart",
     "Asscher",
     "Cushion",
+    "E. Cushion",
+    "Princess",
+    "Baguette",
+    "Triangle",
+    "Trillion",
+    "Tapper",
     "Custom shape",
 ]
 
@@ -135,8 +189,35 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
         users = list_users(db_path=app.config["DB_PATH"])
         return render_template(
-            "admin_users.html", users=users, current_user=session.get("username")
+            "admin_users.html",
+            users=users,
+            current_user=session.get("username"),
+            current_user_id=session.get("user_id"),
         )
+
+    @app.route("/admin/users/<int:user_id>/edit", methods=["POST"])
+    @admin_required
+    def admin_edit_user(user_id: int):
+        new_username = request.form.get("username", "")
+        new_password = request.form.get("password", "")
+        ok, message = update_user(
+            user_id, new_username, new_password, db_path=app.config["DB_PATH"]
+        )
+        if ok and user_id == session.get("user_id"):
+            session["username"] = new_username.strip()
+        flash(message, "success" if ok else "error")
+        return redirect(url_for("admin_users"))
+
+    @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+    @admin_required
+    def admin_delete_user(user_id: int):
+        ok, message = delete_user(
+            user_id,
+            acting_user_id=session.get("user_id"),
+            db_path=app.config["DB_PATH"],
+        )
+        flash(message, "success" if ok else "error")
+        return redirect(url_for("admin_users"))
 
     @app.route("/", methods=["GET"])
     @login_required
@@ -201,6 +282,95 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             return jsonify({"error": f"Order '{order_id}' not found."}), 404
         return jsonify({"order": order})
 
+    @app.route("/api/orders/<order_id>", methods=["PUT"])
+    @login_required
+    def api_update_order(order_id: str):
+        existing = get_order_by_id(order_id, db_path=app.config["DB_PATH"])
+        if existing is None:
+            return jsonify({"ok": False, "error": f"Order '{order_id}' not found."}), 404
+
+        payload = request.get_json(silent=True) or {}
+        customer_name = str(payload.get("customer_name") or "").strip()
+        product_type = str(payload.get("product_type") or "").strip()
+        product_sku = str(payload.get("product_sku") or "").strip()
+        metal_option = str(payload.get("metal_option") or "").strip()
+        metal_tone = str(payload.get("metal_tone") or "").strip()
+        size_or_closure = str(payload.get("size_or_closure") or "").strip()
+
+        errors: list[str] = []
+        if not customer_name:
+            errors.append("Customer Name is required.")
+        if not product_type:
+            errors.append("Product Type is required.")
+        if not product_sku:
+            errors.append("Product SKU is required.")
+        if not metal_option:
+            errors.append("Metal Option is required.")
+        if not metal_tone:
+            errors.append("Metal Tone is required.")
+        if not size_or_closure:
+            errors.append("Size / Closure is required.")
+
+        try:
+            quantity = int(payload.get("quantity", 1))
+            if quantity < 1:
+                errors.append("Quantity must be at least 1.")
+        except (TypeError, ValueError):
+            quantity = 1
+            errors.append("Quantity must be a valid integer.")
+
+        raw_stones = payload.get("stone_details")
+        if raw_stones is None:
+            raw_stones = (existing.get("item") or {}).get("stone_details") or []
+        if not isinstance(raw_stones, list):
+            errors.append("Invalid stone_details payload.")
+            raw_stones = []
+
+        if errors:
+            return jsonify({"ok": False, "errors": errors}), 400
+
+        updated = update_order(
+            order_id,
+            order_data={
+                "customer_name": customer_name,
+                "mobile_number": payload.get("mobile_number"),
+                "email": payload.get("email"),
+                "living_address": payload.get("living_address"),
+                "dispatch_date": payload.get("dispatch_date"),
+                "order_placing_date": payload.get("order_placing_date"),
+                "factory_receiving_date": payload.get("factory_receiving_date"),
+            },
+            item_data={
+                "product_type": product_type,
+                "product_sku": product_sku,
+                "quantity": quantity,
+                "metal_option": metal_option,
+                "metal_tone": metal_tone,
+                "band_tone": payload.get("band_tone"),
+                "prong_tone": payload.get("prong_tone"),
+                "basket_tone": payload.get("basket_tone"),
+                "cad_image_no": payload.get("cad_image_no"),
+                "size_or_closure": size_or_closure,
+                "engraving": payload.get("engraving"),
+                "side_engraving": resolve_side_engraving(metal_option, payload.get("side_engraving")),
+                "special_requirements": payload.get("special_requirements"),
+                "stone_details": clean_stones_payload(raw_stones),
+            },
+            db_path=app.config["DB_PATH"],
+        )
+
+        if updated is not None:
+            generate_both_order_pdfs(updated, output_dir=app.config["PDF_DIR"])
+
+        return jsonify(
+            {
+                "ok": True,
+                "order": updated,
+                "workpdf_url": f"/orders/{order_id}/workpdf",
+                "ourpdf_url": f"/orders/{order_id}/ourpdf",
+            }
+        )
+
     def _delete_order_and_files(order_id: str) -> str | None:
         deleted = delete_order(order_id, db_path=app.config["DB_PATH"])
         if deleted is None:
@@ -213,12 +383,17 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         if os.path.isdir(upload_subdir):
             shutil.rmtree(upload_subdir, ignore_errors=True)
 
-        pdf_file = os.path.join(app.config["PDF_DIR"], f"{safe_order_id}_job_sheet.pdf")
-        if os.path.isfile(pdf_file):
-            try:
-                os.remove(pdf_file)
-            except OSError:
-                pass
+        for fname in (
+            get_pdf_filename(canonical_id, "work"),
+            get_pdf_filename(canonical_id, "our"),
+            f"{safe_order_id}DOD.pdf",
+        ):
+            pdf_file = os.path.join(app.config["PDF_DIR"], fname)
+            if os.path.isfile(pdf_file):
+                try:
+                    os.remove(pdf_file)
+                except OSError:
+                    pass
         return canonical_id
 
     @app.route("/api/orders/<order_id>", methods=["DELETE"])
@@ -256,14 +431,21 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         email = (form.get("email") or "").strip() or None
         living_address = (form.get("living_address") or "").strip() or None
         dispatch_date = (form.get("dispatch_date") or "").strip() or None
+        order_placing_date = (form.get("order_placing_date") or "").strip() or None
+        factory_receiving_date = (form.get("factory_receiving_date") or "").strip() or None
 
         product_type = (form.get("product_type") or "").strip()
         product_sku = (form.get("product_sku") or "").strip()
         quantity_raw = (form.get("quantity") or "1").strip()
         metal_option = (form.get("metal_option") or "").strip()
         metal_tone = (form.get("metal_tone") or "").strip()
+        band_tone = (form.get("band_tone") or "").strip() or None
+        prong_tone = (form.get("prong_tone") or "").strip() or None
+        basket_tone = (form.get("basket_tone") or "").strip() or None
+        cad_image_no = (form.get("cad_image_no") or "").strip() or None
         size_or_closure = (form.get("size_or_closure") or "").strip()
         engraving = (form.get("engraving") or "").strip() or None
+        side_engraving = resolve_side_engraving(metal_option, form.get("side_engraving"))
         special_requirements = (form.get("special_requirements") or "").strip() or None
         stones_raw = form.get("stone_details_json") or "[]"
 
@@ -399,22 +581,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     for entry in local_entries
                 ]
 
-        clean_stones = [
-            {
-                "stone_type": str(s.get("stone_type") or "").strip(),
-                "shape": str(s.get("shape") or "").strip(),
-                "size_mm": str(s.get("size_mm") or "").strip(),
-                "carat_weight": str(s.get("carat_weight") or "").strip(),
-                "color": str(s.get("color") or "").strip(),
-                "quantity": str(s.get("quantity") or "").strip(),
-            }
-            for s in stones
-            if isinstance(s, dict)
-            and any(
-                str(s.get(k) or "").strip()
-                for k in ("stone_type", "shape", "size_mm", "carat_weight", "color", "quantity")
-            )
-        ]
+        clean_stones = clean_stones_payload(stones)
 
         save_order(
             order_data={
@@ -424,6 +591,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 "email": email,
                 "living_address": living_address,
                 "dispatch_date": dispatch_date,
+                "order_placing_date": order_placing_date,
+                "factory_receiving_date": factory_receiving_date,
             },
             item_data={
                 "product_type": product_type,
@@ -431,8 +600,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 "quantity": quantity,
                 "metal_option": metal_option,
                 "metal_tone": metal_tone,
+                "band_tone": band_tone,
+                "prong_tone": prong_tone,
+                "basket_tone": basket_tone,
+                "cad_image_no": cad_image_no,
                 "size_or_closure": size_or_closure,
                 "engraving": engraving,
+                "side_engraving": side_engraving,
                 "special_requirements": special_requirements,
                 "stone_details": clean_stones,
             },
@@ -440,44 +614,64 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             db_path=app.config["DB_PATH"],
         )
 
-        workshop_order = get_workshop_order_by_id(order_id, db_path=app.config["DB_PATH"])
-        if workshop_order is None:
+        saved_order = get_order_by_id(order_id, db_path=app.config["DB_PATH"])
+        if saved_order is None:
             return jsonify({"ok": False, "errors": ["Failed to load order for PDF generation."]}), 500
 
-        pdf_path = generate_order_pdf(workshop_order, output_dir=app.config["PDF_DIR"])
+        pdfs = generate_both_order_pdfs(saved_order, output_dir=app.config["PDF_DIR"])
 
         return jsonify(
             {
                 "ok": True,
                 "order_id": order_id,
-                "pdf_url": f"/orders/{order_id}/pdf",
-                "pdf_filename": os.path.basename(pdf_path),
+                "pdf_url": f"/orders/{order_id}/workpdf",
+                "pdf_filename": os.path.basename(pdfs["workpdf_path"]),
+                "workpdf_url": f"/orders/{order_id}/workpdf",
+                "workpdf_filename": os.path.basename(pdfs["workpdf_path"]),
+                "ourpdf_url": f"/orders/{order_id}/ourpdf",
+                "ourpdf_filename": os.path.basename(pdfs["ourpdf_path"]),
                 "drive_uploaded": drive_uploaded,
                 "warnings": warnings,
             }
         ), 201
 
-    @app.route("/orders/<order_id>/pdf", methods=["GET"])
-    @login_required
-    def download_order_pdf(order_id: str):
-        workshop_order = get_workshop_order_by_id(order_id, db_path=app.config["DB_PATH"])
-        if workshop_order is None:
+    def _serve_order_pdf(order_id: str, pdf_type: str):
+        full_order = get_order_by_id(order_id, db_path=app.config["DB_PATH"])
+        if full_order is None:
             return jsonify({"error": f"Order '{order_id}' not found."}), 404
 
-        canonical_id = workshop_order["order_id"]
-        safe_order_id = "".join(c for c in canonical_id if c.isalnum() or c in ("-", "_"))
-        expected_pdf = os.path.join(app.config["PDF_DIR"], f"{safe_order_id}_job_sheet.pdf")
+        canonical_id = full_order["order_id"]
+        filename = get_pdf_filename(canonical_id, pdf_type=pdf_type)
+        expected_pdf = os.path.join(app.config["PDF_DIR"], filename)
         force_regen = request.args.get("regenerate") == "1"
 
         if force_regen or not os.path.isfile(expected_pdf):
-            expected_pdf = generate_order_pdf(workshop_order, output_dir=app.config["PDF_DIR"])
+            expected_pdf = generate_order_pdf(
+                full_order, output_dir=app.config["PDF_DIR"], pdf_type=pdf_type
+            )
 
         return send_file(
             expected_pdf,
             mimetype="application/pdf",
             as_attachment=True,
-            download_name=f"{safe_order_id}_job_sheet.pdf",
+            download_name=filename,
         )
+
+    @app.route("/orders/<order_id>/workpdf", methods=["GET"])
+    @login_required
+    def download_work_pdf(order_id: str):
+        return _serve_order_pdf(order_id, "work")
+
+    @app.route("/orders/<order_id>/ourpdf", methods=["GET"])
+    @login_required
+    def download_our_pdf(order_id: str):
+        return _serve_order_pdf(order_id, "our")
+
+    @app.route("/orders/<order_id>/pdf", methods=["GET"])
+    @login_required
+    def download_order_pdf(order_id: str):
+        pdf_type = "our" if request.args.get("type") == "our" else "work"
+        return _serve_order_pdf(order_id, pdf_type)
 
     @app.route("/uploads/<order_id>/<filename>", methods=["GET"])
     @login_required

@@ -140,6 +140,14 @@
     syncSizeClosureValue();
   }
 
+  const SIDE_ENGRAVING_MAP = {
+    "925 Sterling Silver": "DOD 925S",
+    "10K Solid Gold": "DOD 10KT",
+    "14K Solid Gold": "DOD 14KT",
+    "18K Solid Gold": "DOD 18KT",
+    "950 Platinum": "DOD 950P"
+  };
+
   function syncMetalOptionValue() {
     const selected = metalOptionSelect.value;
     const isCustom = selected === "Custom Metal";
@@ -153,6 +161,10 @@
       customMetalInput.required = false;
       customMetalInput.value = "";
       hiddenMetalInput.value = selected;
+    }
+    const sideEngravingInput = document.getElementById("side_engraving");
+    if (sideEngravingInput) {
+      sideEngravingInput.value = SIDE_ENGRAVING_MAP[selected] || "DOD";
     }
   }
 
@@ -265,12 +277,26 @@
       })
       .join("");
 
+    const stoneCategory = initial.stone_category === "Side Stone" ? "Side Stone" : "Center Stone";
+    const parseCaratNum = (val) => {
+      const m = String(val || "").match(/(\d+(?:\.\d+)?)/);
+      return m ? parseFloat(m[1]) : 0;
+    };
+    const showIgiInitial = parseCaratNum(initial.carat_weight) >= 1 || Boolean(initial.igi_certificate);
+
     row.innerHTML = `
       <div class="stone-row-header">
         <span class="stone-row-title">Stone</span>
         <button type="button" class="btn btn-danger-ghost remove-stone-btn">Remove</button>
       </div>
       <div class="stone-grid">
+        <div class="field">
+          <label>Stone Position</label>
+          <select class="stone-category">
+            <option value="Center Stone" ${stoneCategory === "Center Stone" ? "selected" : ""}>Center Stone</option>
+            <option value="Side Stone" ${stoneCategory === "Side Stone" ? "selected" : ""}>Side Stone</option>
+          </select>
+        </div>
         <div class="field">
           <label>Stone Type</label>
           <select class="stone-type">${stoneTypeOptions}</select>
@@ -287,25 +313,164 @@
         </div>
         <div class="field">
           <label>Size (mm)</label>
-          <input type="text" class="stone-size" placeholder="e.g. 9.0 x 6.5" value="${initial.size_mm || ""}" />
+          <select class="stone-size-select"></select>
+          <input type="text" class="stone-size hidden" placeholder="Custom size (e.g. 9.0 x 6.5)" value="${initial.size_mm || ""}" />
         </div>
         <div class="field">
           <label>Carat Weight</label>
-          <input type="text" class="stone-carat" placeholder="e.g. 2.10 ct" value="${initial.carat_weight || ""}" />
+          <select class="stone-carat-select"></select>
+          <input type="text" class="stone-carat hidden" placeholder="Custom carat (e.g. 2.10 ct)" value="${initial.carat_weight || ""}" />
         </div>
         <div class="field">
           <label>Color</label>
           <input type="text" class="stone-color" placeholder="e.g. E-F, D" value="${initial.color || ""}" />
         </div>
         <div class="field">
+          <label>Clarity</label>
+          <input type="text" class="stone-clarity" placeholder="e.g. VVS1, VS2" value="${initial.clarity || ""}" />
+        </div>
+        <div class="field stone-igi-field ${showIgiInitial ? "" : "hidden"}">
+          <label>IGI Certificate No.</label>
+          <input type="text" class="stone-igi" placeholder="e.g. LG612345678" value="${initial.igi_certificate || ""}" />
+        </div>
+        <div class="field">
           <label>Quantity <span class="hint">(Optional)</span></label>
           <input type="number" min="1" class="stone-qty" placeholder="e.g. 1, 18" value="${initial.quantity || ""}" />
+        </div>
+        <div class="field">
+          <label>Other Remark</label>
+          <input type="text" class="stone-remark" placeholder="Any stone remark" value="${initial.other_remark || ""}" />
         </div>
       </div>
     `;
 
+    const caratSelect = row.querySelector(".stone-carat-select");
+    const caratInput = row.querySelector(".stone-carat");
+    const sizeSelect = row.querySelector(".stone-size-select");
+    const sizeInput = row.querySelector(".stone-size");
+    const qtyInput = row.querySelector(".stone-qty");
+    const igiField = row.querySelector(".stone-igi-field");
+    const igiInput = row.querySelector(".stone-igi");
     const shapeSelect = row.querySelector(".stone-shape");
     const customShapeInput = row.querySelector(".stone-shape-custom");
+
+    function updateIgiVisibility() {
+      const showIgi = parseCaratNum(caratInput.value) >= 1;
+      igiField.classList.toggle("hidden", !showIgi);
+      if (!showIgi) {
+        igiInput.value = "";
+      }
+    }
+
+    function populateChartDropdowns() {
+      const chart = window.DOD_STONE_CHART || {};
+      const shape = shapeSelect.value;
+      const entries = chart[shape] || [];
+
+      const prevCarat = caratInput.value.trim();
+      const prevSize = sizeInput.value.trim();
+
+      caratSelect.innerHTML = `<option value="">-- Select Chart Carat --</option>`;
+      entries.forEach((e) => {
+        const opt = document.createElement("option");
+        opt.value = e.carat;
+        opt.textContent = `${e.carat} ct`;
+        caratSelect.appendChild(opt);
+      });
+      const customCaratOpt = document.createElement("option");
+      customCaratOpt.value = "__custom__";
+      customCaratOpt.textContent = "Custom Carat Weight";
+      caratSelect.appendChild(customCaratOpt);
+
+      sizeSelect.innerHTML = `<option value="">-- Auto / Select Size --</option>`;
+      entries.forEach((e) => {
+        const opt = document.createElement("option");
+        opt.value = e.size;
+        opt.textContent = e.size;
+        sizeSelect.appendChild(opt);
+      });
+      const customSizeOpt = document.createElement("option");
+      customSizeOpt.value = "__custom__";
+      customSizeOpt.textContent = "Custom Size";
+      sizeSelect.appendChild(customSizeOpt);
+
+      if (!entries.length) {
+        caratSelect.value = "__custom__";
+        sizeSelect.value = "__custom__";
+        caratInput.classList.remove("hidden");
+        sizeInput.classList.remove("hidden");
+        return;
+      }
+
+      if (prevCarat && entries.some((e) => e.carat === prevCarat)) {
+        caratSelect.value = prevCarat;
+        caratInput.classList.add("hidden");
+      } else if (prevCarat) {
+        caratSelect.value = "__custom__";
+        caratInput.classList.remove("hidden");
+      } else {
+        caratSelect.value = "";
+        caratInput.classList.add("hidden");
+      }
+
+      if (prevSize && entries.some((e) => e.size === prevSize)) {
+        sizeSelect.value = prevSize;
+        sizeInput.classList.add("hidden");
+      } else if (prevSize) {
+        sizeSelect.value = "__custom__";
+        sizeInput.classList.remove("hidden");
+      } else {
+        sizeSelect.value = "";
+        sizeInput.classList.add("hidden");
+      }
+    }
+
+    function autoCalculateSizeFromChart() {
+      if (sizeSelect.value === "__custom__") return;
+      if (!window.lookupStoneSizeByCarat) return;
+      const match = window.lookupStoneSizeByCarat(
+        shapeSelect.value,
+        caratInput.value,
+        qtyInput.value
+      );
+      if (match) {
+        sizeSelect.value = match.size;
+        sizeInput.value = match.size;
+        sizeInput.classList.add("hidden");
+      }
+    }
+
+    caratSelect.addEventListener("change", () => {
+      if (caratSelect.value === "__custom__") {
+        caratInput.classList.remove("hidden");
+        caratInput.focus();
+      } else {
+        caratInput.classList.add("hidden");
+        caratInput.value = caratSelect.value;
+        updateIgiVisibility();
+        autoCalculateSizeFromChart();
+      }
+    });
+
+    sizeSelect.addEventListener("change", () => {
+      if (sizeSelect.value === "__custom__") {
+        sizeInput.classList.remove("hidden");
+        sizeInput.focus();
+      } else {
+        sizeInput.classList.add("hidden");
+        sizeInput.value = sizeSelect.value;
+      }
+    });
+
+    caratInput.addEventListener("input", () => {
+      updateIgiVisibility();
+      autoCalculateSizeFromChart();
+    });
+
+    qtyInput.addEventListener("input", () => {
+      autoCalculateSizeFromChart();
+    });
+
     shapeSelect.addEventListener("change", () => {
       const showCustom = shapeSelect.value === "Custom shape";
       customShapeInput.classList.toggle("hidden", !showCustom);
@@ -314,7 +479,12 @@
       } else {
         customShapeInput.focus();
       }
+      populateChartDropdowns();
+      autoCalculateSizeFromChart();
     });
+
+    populateChartDropdowns();
+    updateIgiVisibility();
 
     row.querySelector(".remove-stone-btn").addEventListener("click", () => {
       row.remove();
@@ -337,14 +507,28 @@
         selectedShape === "Custom shape" ? customShape || "Custom shape" : selectedShape;
 
       const stone = {
+        stone_category: row.querySelector(".stone-category").value.trim() || "Center Stone",
         stone_type: row.querySelector(".stone-type").value.trim(),
         shape: resolvedShape,
         size_mm: row.querySelector(".stone-size").value.trim(),
         carat_weight: row.querySelector(".stone-carat").value.trim(),
         color: row.querySelector(".stone-color").value.trim(),
-        quantity: row.querySelector(".stone-qty").value.trim()
+        clarity: row.querySelector(".stone-clarity").value.trim(),
+        igi_certificate: row.querySelector(".stone-igi").value.trim(),
+        quantity: row.querySelector(".stone-qty").value.trim(),
+        other_remark: row.querySelector(".stone-remark").value.trim()
       };
-      if (stone.size_mm || stone.carat_weight || stone.color || stone.quantity || customShape || stone.shape) {
+      if (
+        stone.size_mm ||
+        stone.carat_weight ||
+        stone.color ||
+        stone.clarity ||
+        stone.igi_certificate ||
+        stone.quantity ||
+        stone.other_remark ||
+        customShape ||
+        stone.shape
+      ) {
         list.push(stone);
       }
     });
@@ -557,10 +741,11 @@
 
       showAlert(
         "success",
-        `Order <strong>${data.order_id}</strong> saved and workshop PDF generated!
+        `Order <strong>${data.order_id}</strong> saved and both PDFs generated!
          ${warningsHtml}
          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
-           <a href="${data.pdf_url}" class="btn btn-primary">Download Workshop PDF</a>
+           <a href="${data.workpdf_url}" class="btn btn-primary">Download Work PDF</a>
+           <a href="${data.ourpdf_url}" class="btn btn-outline">Download Our PDF</a>
            <a href="/orders" class="btn btn-outline">View Orders History</a>
            <button type="button" id="deleteSavedOrderBtn" class="btn btn-danger">Delete Stored Entry</button>
          </div>`

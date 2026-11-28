@@ -3,10 +3,10 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>{{ brand_name }} — Workshop Job Sheet</title>
+  <title>{{ brand_name }}</title>
   <style>
     @page {
-      size: A4 landscape;
+      size: A4 portrait;
       margin: 10mm;
     }
 
@@ -20,7 +20,7 @@
       font-family: "Segoe UI", Arial, Helvetica, sans-serif;
       color: #1f2937;
       background: #ffffff;
-      font-size: 26px;
+      font-size: 14px;
       line-height: 1.3;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -29,55 +29,56 @@
     .job-sheet-wrapper {
       width: 100%;
       border-collapse: collapse;
-      border: 2.5px solid #3F070C;
+      border: 2px solid #3F070C;
       table-layout: fixed;
     }
 
     .job-sheet-wrapper td {
-      border: 2px solid #3F070C;
-      padding: 8px 10px;
+      border: 1.5px solid #3F070C;
+      padding: 5px 7px;
       vertical-align: middle;
+      word-break: break-word;
     }
 
     /* Column Widths matching the reference layout */
     .col-label {
-      width: 14%;
+      width: 20%;
       text-align: center;
       font-weight: 600;
-      font-size: 26px;
+      font-size: 13px;
       color: #3F070C;
       background: #f9fafb;
     }
 
     .col-value {
-      width: 19%;
+      width: 24%;
       text-align: center;
       font-weight: 700;
-      font-size: 27px;
+      font-size: 13.5px;
       color: #111827;
       background: #ffffff;
     }
 
     .col-qr {
-      width: 11%;
+      width: 12%;
       text-align: center;
       vertical-align: middle;
-      padding: 6px;
+      padding: 4px;
       background: #f9fafb;
     }
 
     .col-image {
-      width: 56%;
+      width: 44%;
       text-align: center;
       vertical-align: middle;
-      padding: 10px;
+      padding: 8px;
       background: #f9fafb;
     }
 
     /* QR Code styling */
     .qr-img {
-      width: 82px;
-      height: 82px;
+      width: 64px;
+      height: 64px;
       object-fit: contain;
       display: block;
       margin: 0 auto;
@@ -89,13 +90,15 @@
 
     /* Main Product Image styling */
     .main-product-img {
+      width: 100%;
       max-width: 100%;
-      max-height: 440px;
+      max-height: 420px;
+      height: auto;
       object-fit: contain;
       display: block;
       margin: 0 auto;
       background: #ffffff;
-      border: 1.5px solid #e5e7eb;
+      border: 1px solid #e5e7eb;
       border-radius: 4px;
       padding: 4px;
     }
@@ -123,12 +126,32 @@
       break-inside: avoid;
     }
 
+    .stone-section-title {
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #3F070C;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
     .extra-table th,
     .extra-table td {
-      border: 2px solid #3F070C;
-      padding: 6px 8px;
+      border: 1.5px solid #3F070C;
+      padding: 4px 5px;
       text-align: center;
-      font-size: 24px;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .stone-total-row td {
+      background: #fdf6f6 !important;
+      color: #3F070C;
+      font-weight: 700;
+      font-size: 12.5px;
+      text-align: right;
+      padding: 5px 8px;
     }
 
     .extra-table th {
@@ -150,17 +173,18 @@
     /* Additional Images sizing & card layout */
     .extra-images-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
       width: 100%;
+      margin-top: 4px;
     }
 
     .extra-image-card {
       min-width: 0;
       overflow: hidden;
-      border: 1px solid #e5e7eb;
+      border: 1.5px solid #3F070C;
       border-radius: 5px;
-      padding: 6px;
+      padding: 5px;
       background: #ffffff;
       break-inside: avoid;
       page-break-inside: avoid;
@@ -171,13 +195,13 @@
 
     .extra-image-box {
       width: 100%;
-      height: 350px;
+      height: 200px;
       background: #f9fafb;
       border-radius: 3px;
       display: flex;
       align-items: center;
       justify-content: center;
-
+      overflow: hidden;
     }
 
     .extra-image-box img {
@@ -191,7 +215,7 @@
 
     .extra-image-caption {
       margin-top: 4px;
-      font-size: 14px;
+      font-size: 11px;
       color: #6b7280;
       text-align: center;
       overflow: hidden;
@@ -201,7 +225,7 @@
 
     .extra-image-link {
       margin-top: 2px;
-      font-size: 20px;
+      font-size: 10px;
       color: #3F070C;
       word-break: break-all;
       text-align: center;
@@ -235,7 +259,7 @@
           <img class="qr-img" src="{{ qr_data_uri }}" alt="QR Code" />
           {% endif %}
         </td>
-        <td class="col-image" rowspan="10">
+        <td class="col-image" rowspan="20">
           {% if images and images|length > 0 %}
           <img class="main-product-img" src="{{ images[0].src }}"
             alt="{{ images[0].filename or 'Product Reference' }}" />
@@ -254,52 +278,112 @@
       <!-- Row 3: Delivery / Dispatch Date -->
       <tr>
         <td class="col-label">Delivery<br />Date:</td>
-        <td class="col-value">{{ dispatch_date }}</td>
+        <td class="col-value">{{ dispatch_date or '—' }}</td>
       </tr>
 
-      <!-- Row 4: Party / Customer Name -->
+      <!-- Row 4: Order Placing Date -->
+      <tr>
+        <td class="col-label">Order Placing<br />Date:</td>
+        <td class="col-value" colspan="2">{{ order_placing_date or '—' }}</td>
+      </tr>
+
+      <!-- Row 5: Factory Receiving Date -->
+      <tr>
+        <td class="col-label">Factory Rec.<br />Date:</td>
+        <td class="col-value" colspan="2">{{ factory_receiving_date or '—' }}</td>
+      </tr>
+
+      <!-- Row 6: Party / Customer Name -->
       <tr>
         <td class="col-label">Customer Name:</td>
         <td class="col-value" colspan="2">{{ customer_name }}</td>
       </tr>
 
-      <!-- Row 5: Items / Product Type -->
+      <!-- Row 7: Mobile -->
+      <tr>
+        <td class="col-label">Mobile:</td>
+        <td class="col-value" colspan="2">{{ mobile_number or '—' }}</td>
+      </tr>
+
+      <!-- Row 8: Email -->
+      <tr>
+        <td class="col-label">Email:</td>
+        <td class="col-value" colspan="2">{{ email or '—' }}</td>
+      </tr>
+
+      <!-- Row 9: Address -->
+      <tr>
+        <td class="col-label">Address:</td>
+        <td class="col-value" colspan="2">{{ living_address or '—' }}</td>
+      </tr>
+
+      <!-- Row 7: Items / Product Type -->
       <tr>
         <td class="col-label">Items:</td>
         <td class="col-value" colspan="2">{{ product_type }}</td>
       </tr>
 
-      <!-- Row 6: Metal Option -->
+      <!-- Row 8: Metal Option -->
       <tr>
         <td class="col-label">Metal Option:</td>
         <td class="col-value" colspan="2">{{ metal_option or '—' }}</td>
       </tr>
 
-      <!-- Row 7: Metal Tone -->
+      <!-- Row 9: Metal Tone -->
       <tr>
         <td class="col-label">Metal Tone:</td>
         <td class="col-value" colspan="2">{{ metal_tone or '—' }}</td>
       </tr>
 
-      <!-- Row 8: Quantity -->
+      <!-- Row 10: Band Tone -->
+      <tr>
+        <td class="col-label">Band Tone:</td>
+        <td class="col-value" colspan="2">{{ band_tone or '—' }}</td>
+      </tr>
+
+      <!-- Row 11: Prong Tone -->
+      <tr>
+        <td class="col-label">Prong Tone:</td>
+        <td class="col-value" colspan="2">{{ prong_tone or '—' }}</td>
+      </tr>
+
+      <!-- Row 12: Basket Tone -->
+      <tr>
+        <td class="col-label">Basket Tone:</td>
+        <td class="col-value" colspan="2">{{ basket_tone or '—' }}</td>
+      </tr>
+
+      <!-- Row 13: CAD Image No -->
+      <tr>
+        <td class="col-label">CAD Image No.:</td>
+        <td class="col-value" colspan="2">{{ cad_image_no or '—' }}</td>
+      </tr>
+
+      <!-- Row 14: Quantity -->
       <tr>
         <td class="col-label">Quantity:</td>
         <td class="col-value" colspan="2">{{ quantity }}</td>
       </tr>
 
-      <!-- Row 9: Engraving (in place of Party Order No) -->
+      <!-- Row 15: Center Engraving -->
       <tr>
-        <td class="col-label">Engraving:</td>
+        <td class="col-label">Center<br />Engraving:</td>
         <td class="col-value" colspan="2">{{ engraving or '—' }}</td>
       </tr>
 
-      <!-- Row 10: Size -->
+      <!-- Row 16: Side Engraving -->
+      <tr>
+        <td class="col-label">Side<br />Engraving:</td>
+        <td class="col-value" colspan="2">{{ side_engraving or '—' }}</td>
+      </tr>
+
+      <!-- Row 17: Size -->
       <tr>
         <td class="col-label">Size:</td>
         <td class="col-value" colspan="2">{{ size_or_closure }}</td>
       </tr>
 
-      <!-- Row 11: Remarks (Special Requirements) -->
+      <!-- Row 18: Remarks (Special Requirements) -->
       <tr>
         <td class="col-label">Remarks:</td>
         <td class="col-value remarks-cell" colspan="3">{{ special_requirements }}</td>
@@ -307,22 +391,26 @@
     </tbody>
   </table>
 
-  <!-- Stone Details Table (Renders in matching maroon-accented grid style if stones exist) -->
-  {% if stones %}
-  <table class="extra-table">
+  <!-- Center Stone Table -->
+  {% if center_stones %}
+  <div class="stone-section-title">Center Stone</div>
+  <table class="extra-table" style="margin-top: 2px;">
     <thead>
       <tr>
-        <th style="width: 6%;">#</th>
+        <th style="width: 5%;">#</th>
         <th>Stone Type</th>
         <th>Shape</th>
         <th>Size (mm)</th>
-        <th>Carat Weight</th>
+        <th>Carat</th>
         <th>Color</th>
-        <th style="width: 10%;">Qty</th>
+        <th>Clarity</th>
+        <th>IGI Cert No.</th>
+        <th style="width: 7%;">Qty</th>
+        <th>Other Remark</th>
       </tr>
     </thead>
     <tbody>
-      {% for stone in stones %}
+      {% for stone in center_stones %}
       <tr>
         <td>{{ loop.index }}</td>
         <td><strong>{{ stone.stone_type or "—" }}</strong></td>
@@ -330,41 +418,90 @@
         <td>{{ stone.size_mm or "—" }}</td>
         <td>{{ stone.carat_weight or "—" }}</td>
         <td>{{ stone.color or "—" }}</td>
+        <td>{{ stone.clarity or "—" }}</td>
+        <td>{{ stone.igi_certificate or "—" }}</td>
         <td><strong>{{ stone.quantity or "—" }}</strong></td>
+        <td>{{ stone.other_remark or "—" }}</td>
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot>
+      <tr class="stone-total-row">
+        <td colspan="10">
+          Total Stones: {{ center_totals.total_qty }} &nbsp;|&nbsp; Total Carat Weight: {{ center_totals.total_carat }}
+        </td>
+      </tr>
+    </tfoot>
   </table>
   {% endif %}
 
-  <!-- Additional Reference Images & Videos (Only renders if more than 1 image or video links exist) -->
-  {% if (images and images|length > 1) or videos %}
-  <table class="extra-table">
-    <tbody>
-      {% if images and images|length > 1 %}
+  <!-- Side Stone Table -->
+  {% if side_stones %}
+  <div class="stone-section-title">Side Stone</div>
+  <table class="extra-table" style="margin-top: 2px;">
+    <thead>
       <tr>
-        <td class="col-label" style="width: 14%;">Additional<br />Images:</td>
-        <td style="text-align: left; background: #f9fafb;">
-          <div class="extra-images-grid">
-            {% for img in images[1:] %}
-            <div class="extra-image-card">
-              <div class="extra-image-box">
-                <img src="{{ img.src }}" alt="Ref #{{ img.index }}" />
-              </div>
-              <div class="extra-image-caption">Ref #{{ img.index }} — {{ img.filename }}</div>
-              {% if img.drive_view_link %}
-              <div class="extra-image-link">
-                <a href="{{ img.drive_view_link }}">{{ img.drive_view_link }}</a>
-              </div>
-              {% endif %}
-            </div>
-            {% endfor %}
-          </div>
+        <th style="width: 5%;">#</th>
+        <th>Stone Type</th>
+        <th>Shape</th>
+        <th>Size (mm)</th>
+        <th>Carat</th>
+        <th>Color</th>
+        <th>Clarity</th>
+        <th>IGI Cert No.</th>
+        <th style="width: 7%;">Qty</th>
+        <th>Other Remark</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stone in side_stones %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ stone.stone_type or "—" }}</strong></td>
+        <td>{{ stone.shape or "—" }}</td>
+        <td>{{ stone.size_mm or "—" }}</td>
+        <td>{{ stone.carat_weight or "—" }}</td>
+        <td>{{ stone.color or "—" }}</td>
+        <td>{{ stone.clarity or "—" }}</td>
+        <td>{{ stone.igi_certificate or "—" }}</td>
+        <td><strong>{{ stone.quantity or "—" }}</strong></td>
+        <td>{{ stone.other_remark or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="stone-total-row">
+        <td colspan="10">
+          Total Stones: {{ side_totals.total_qty }} &nbsp;|&nbsp; Total Carat Weight: {{ side_totals.total_carat }}
         </td>
       </tr>
-      {% endif %}
+    </tfoot>
+  </table>
+  {% endif %}
 
-      {% if videos %}
+  <!-- Additional Reference Images (flows naturally across pages) -->
+  {% if images and images|length > 1 %}
+  <div class="stone-section-title">Additional Images ({{ images|length - 1 }})</div>
+  <div class="extra-images-grid">
+    {% for img in images[1:] %}
+    <div class="extra-image-card">
+      <div class="extra-image-box">
+        <img src="{{ img.src }}" alt="Ref #{{ img.index }}" />
+      </div>
+      <div class="extra-image-caption">Ref #{{ img.index }} — {{ img.filename }}</div>
+      {% if img.drive_view_link %}
+      <div class="extra-image-link">
+        <a href="{{ img.drive_view_link }}">{{ img.drive_view_link }}</a>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if videos %}
+  <table class="extra-table">
+    <tbody>
       <tr>
         <td class="col-label" style="width: 14%;">Video<br />Links:</td>
         <td style="text-align: left; background: #ffffff;">
@@ -381,7 +518,6 @@
           {% endfor %}
         </td>
       </tr>
-      {% endif %}
     </tbody>
   </table>
   {% endif %}

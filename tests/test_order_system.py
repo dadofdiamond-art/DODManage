@@ -23,7 +23,7 @@ from database import (
     save_order,
 )
 from drive_uploader import upload_order_media
-from pdf_generator import render_workshop_html
+from pdf_generator import render_ourpdf_html, render_workpdf_html, render_workshop_html
 
 
 def _make_png_bytes(color: tuple[int, int, int] = (63, 7, 12)) -> bytes:
@@ -147,14 +147,22 @@ def test_create_order_zero_media_and_missing_mobile_generates_pdf(app_client):
     assert payload["ok"] is True
     assert payload["order_id"] == "DOD2026ZERO"
 
-    expected_pdf = os.path.join(pdf_dir, "DOD2026ZERO_job_sheet.pdf")
-    assert os.path.isfile(expected_pdf)
-    with open(expected_pdf, "rb") as fh:
+    expected_workpdf = os.path.join(pdf_dir, "DOD2026ZERO_workpdf.pdf")
+    expected_ourpdf = os.path.join(pdf_dir, "DOD2026ZERO_ourpdf.pdf")
+    assert os.path.isfile(expected_workpdf)
+    assert os.path.isfile(expected_ourpdf)
+    with open(expected_workpdf, "rb") as fh:
+        assert fh.read(5) == b"%PDF-"
+    with open(expected_ourpdf, "rb") as fh:
         assert fh.read(5) == b"%PDF-"
 
-    dl_resp = client.get("/orders/DOD2026ZERO/pdf")
+    dl_resp = client.get("/orders/DOD2026ZERO/workpdf")
     assert dl_resp.status_code == 200
     assert dl_resp.mimetype == "application/pdf"
+
+    dl_our_resp = client.get("/orders/DOD2026ZERO/ourpdf")
+    assert dl_our_resp.status_code == 200
+    assert dl_our_resp.mimetype == "application/pdf"
 
 
 def test_create_order_ten_images_and_two_videos_multipage_pdf(app_client, monkeypatch):
@@ -248,8 +256,10 @@ def test_create_order_ten_images_and_two_videos_multipage_pdf(app_client, monkey
     assert "data:image/png;base64," in html  # QR codes + embedded image previews
     assert "<td><strong>24</strong></td>" in html  # Optional diamond quantity rendered when provided
 
-    pdf_path = os.path.join(pdf_dir, "DOD10IMG2VID_job_sheet.pdf")
+    pdf_path = os.path.join(pdf_dir, "DOD10IMG2VID_workpdf.pdf")
+    our_pdf_path = os.path.join(pdf_dir, "DOD10IMG2VID_ourpdf.pdf")
     assert os.path.isfile(pdf_path)
+    assert os.path.isfile(our_pdf_path)
     assert os.path.getsize(pdf_path) > 15000
 
 
@@ -387,7 +397,7 @@ def test_shape_options_and_delete_order_cleanup(app_client):
     assert create_resp.status_code == 201
     assert order_exists("DODDEL99", db_path=db_path) is True
 
-    pdf_file = os.path.join(pdf_dir, "DODDEL99_job_sheet.pdf")
+    pdf_file = os.path.join(pdf_dir, "DODDEL99_workpdf.pdf")
     upload_dir = os.path.join(app.config["UPLOAD_DIR"], "DODDEL99")
     assert os.path.isfile(pdf_file)
     assert os.path.isdir(upload_dir)
@@ -576,3 +586,193 @@ def test_auth_login_and_admin_only_user_management(tmp_path, monkeypatch):
         client2.get("/logout")
         r2 = client2.post("/login", data={"username": "karigar1", "password": "UserPass123!"})
         assert r2.status_code == 302
+
+        # Login as admin and test edit user + delete user + Show password button
+        client2.get("/logout")
+        client2.post("/login", data={"username": "bossadmin", "password": "SecretAdmin123!"})
+        admin_page = client2.get("/admin/users").get_data(as_text=True)
+        assert "Show" in admin_page
+
+        # Find karigar1's user ID from list_users
+        from auth_setup import list_users
+
+        all_users = list_users(db_path=db_path)
+        karigar = next(u for u in all_users if u["username"] == "karigar1")
+
+        edit_user_resp = client2.post(
+            f"/admin/users/{karigar['id']}/edit",
+            data={"username": "karigar_edited", "password": "NewUserPass123!"},
+            follow_redirects=True,
+        )
+        assert edit_user_resp.status_code == 200
+        assert "karigar_edited" in edit_user_resp.get_data(as_text=True)
+
+        # Verify edited user can log in with new username & password
+        client2.get("/logout")
+        edited_login = client2.post(
+            "/login", data={"username": "karigar_edited", "password": "NewUserPass123!"}
+        )
+        assert edited_login.status_code == 302
+
+        # Admin deletes the edited user
+        client2.get("/logout")
+        client2.post("/login", data={"username": "bossadmin", "password": "SecretAdmin123!"})
+        del_user_resp = client2.post(
+            f"/admin/users/{karigar['id']}/delete",
+            follow_redirects=True,
+        )
+        assert del_user_resp.status_code == 200
+        assert "deleted" in del_user_resp.get_data(as_text=True)
+        assert all(u["id"] != karigar["id"] for u in list_users(db_path=db_path))
+
+
+def test_extended_specs_stone_tables_side_engraving_and_edit_order(app_client):
+    client, _app, db_path, pdf_dir = app_client
+
+    stones = [
+        {
+            "stone_category": "Center Stone",
+            "stone_type": "Lab Diamond",
+            "shape": "Oval",
+            "size_mm": "9.5 x 6.8",
+            "carat_weight": "1.50 ct",
+            "color": "E",
+            "clarity": "VVS1",
+            "igi_certificate": "LG612345678",
+            "quantity": "1",
+            "other_remark": "Ideal cut",
+        },
+        {
+            "stone_category": "Side Stone",
+            "stone_type": "Natural",
+            "shape": "Round",
+            "size_mm": "1.3",
+            "carat_weight": "0.25 ct",
+            "color": "F-G",
+            "clarity": "VS1",
+            "igi_certificate": "",
+            "quantity": "16",
+            "other_remark": "French cut pave",
+        },
+    ]
+
+    resp = client.post(
+        "/api/orders",
+        data={
+            "order_id": "DODEXT01",
+            "customer_name": "Meera Patel",
+            "dispatch_date": "2026-12-28",
+            "order_placing_date": "2026-11-27",
+            "factory_receiving_date": "2026-12-02",
+            "product_type": "Engagement Ring",
+            "product_sku": "DOD-EXT-01",
+            "quantity": "1",
+            "metal_option": "14K Solid Gold",
+            "metal_tone": "Two-Tone",
+            "band_tone": "Yellow",
+            "prong_tone": "White",
+            "basket_tone": "White",
+            "cad_image_no": "CAD-778",
+            "size_or_closure": "US 6.5",
+            "engraving": "M ♥ K",
+            "special_requirements": "Cathedral setting",
+            "stone_details_json": json.dumps(stones),
+        },
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 201
+
+    workshop = get_workshop_order_by_id("DODEXT01", db_path=db_path)
+    assert workshop is not None
+    html = render_workshop_html(workshop)
+    assert "Center Stone" in html
+    assert "Side Stone" in html
+    assert "LG612345678" in html
+    assert "VVS1" in html
+    assert "Ideal cut" in html
+    assert "French cut pave" in html
+    assert "DOD 14KT" in html
+    assert "CAD-778" in html
+    assert "2026-11-27" in html
+    assert "2026-12-02" in html
+
+    # Verify workpdf excludes order/customer/dispatch/placing details while keeping all workshop specs
+    work_html = render_workpdf_html(workshop)
+    assert "DODEXT01" not in work_html
+    assert "DOD-EXT-01" not in work_html
+    assert "Meera Patel" not in work_html
+    assert "2026-12-28" not in work_html
+    assert "2026-11-27" not in work_html
+    assert "2026-12-02" in work_html
+    assert "CAD-778" in work_html
+    assert "LG612345678" in work_html
+    assert "DOD 14KT" in work_html
+    assert "Center Stone" in work_html
+    assert "Side Stone" in work_html
+    assert "A4 portrait" in work_html
+    assert "Total Stones: 1" in work_html
+    assert "Total Carat Weight: 1.5 ct" in work_html
+    assert "Total Stones: 16" in work_html
+    assert "Total Carat Weight: 0.25 ct" in work_html
+
+    # Verify ourpdf contains every entered detail
+    full_order = get_order_by_id("DODEXT01", db_path=db_path)
+    our_html = render_ourpdf_html(full_order)
+    assert "A4 portrait" in our_html
+    assert "Total Stones: 1" in our_html
+    assert "Total Carat Weight: 1.5 ct" in our_html
+    assert "DODEXT01" in our_html
+    assert "DOD-EXT-01" in our_html
+    assert "Meera Patel" in our_html
+    assert "2026-12-28" in our_html
+    assert "2026-11-27" in our_html
+    assert "2026-12-02" in our_html
+
+    # Edit order via PUT /api/orders/<order_id>
+    edit_resp = client.put(
+        "/api/orders/DODEXT01",
+        json={
+            "customer_name": "Meera Patel Updated",
+            "dispatch_date": "2026-12-30",
+            "order_placing_date": "2026-11-27",
+            "factory_receiving_date": "2026-12-05",
+            "product_type": "Engagement Ring",
+            "product_sku": "DOD-EXT-02",
+            "quantity": 2,
+            "metal_option": "950 Platinum",
+            "metal_tone": "White",
+            "band_tone": "White",
+            "prong_tone": "White",
+            "basket_tone": "White",
+            "cad_image_no": "CAD-779",
+            "size_or_closure": "US 7",
+            "engraving": "M ♥ K 2026",
+            "special_requirements": "Updated cathedral setting",
+            "stone_details": stones,
+        },
+    )
+    assert edit_resp.status_code == 200
+    edit_payload = edit_resp.get_json()
+    assert edit_payload["ok"] is True
+    assert edit_payload["order"]["customer_name"] == "Meera Patel Updated"
+    assert edit_payload["order"]["item"]["side_engraving"] == "DOD 950P"
+    assert edit_payload["order"]["item"]["cad_image_no"] == "CAD-779"
+    assert os.path.isfile(os.path.join(pdf_dir, "DODEXT01_workpdf.pdf"))
+    assert os.path.isfile(os.path.join(pdf_dir, "DODEXT01_ourpdf.pdf"))
+
+    # Verify missing stone quantity is treated as dash ("—") and not counted in total
+    from pdf_generator import _compute_stone_totals
+
+    totals_no_qty = _compute_stone_totals([{"stone_category": "Side Stone", "carat_weight": "0.25 ct", "quantity": ""}])
+    assert totals_no_qty["total_qty"] == "—"
+    assert totals_no_qty["total_carat"] == "0.25 ct"
+
+    # Verify stone size chart script & all chart shapes are present
+    home_html = client.get("/").get_data(as_text=True)
+    assert "stone_size_chart.js" in home_html
+    for chart_shape in ("Baguette", "Princess", "Triangle", "Trillion", "E. Cushion", "Tapper"):
+        assert chart_shape in home_html
+
+    chart_js = client.get("/static/js/stone_size_chart.js").get_data(as_text=True)
+    assert "lookupStoneSizeByCarat" in chart_js
+    assert '"7X10"' in chart_js

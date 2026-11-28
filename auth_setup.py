@@ -107,6 +107,73 @@ def list_users(db_path: str | None = None) -> list[dict[str, Any]]:
         return [dict(r) for r in rows]
 
 
+def update_user(
+    user_id: int,
+    new_username: str,
+    new_password: str | None = None,
+    db_path: str | None = None,
+) -> tuple[bool, str]:
+    """Update a user's username and optionally their password."""
+    clean_username = (new_username or "").strip()
+    if len(clean_username) < 3:
+        return False, "Username must be at least 3 characters."
+
+    clean_password = new_password or ""
+    if clean_password and len(clean_password) < 6:
+        return False, "New password must be at least 6 characters."
+
+    try:
+        with get_db_connection(db_path) as conn:
+            existing = conn.execute(
+                "SELECT id FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if not existing:
+                return False, "User not found."
+
+            if clean_password:
+                conn.execute(
+                    "UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
+                    (clean_username, generate_password_hash(clean_password), user_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE users SET username = ? WHERE id = ?",
+                    (clean_username, user_id),
+                )
+            conn.commit()
+        return True, f"User '{clean_username}' updated successfully."
+    except sqlite3.IntegrityError:
+        return False, f"Username '{clean_username}' already exists."
+
+
+def delete_user(
+    user_id: int,
+    acting_user_id: int | None = None,
+    db_path: str | None = None,
+) -> tuple[bool, str]:
+    """Delete a user account (preventing self-deletion or deleting the last admin)."""
+    if acting_user_id is not None and user_id == acting_user_id:
+        return False, "You cannot delete the currently signed-in account."
+
+    with get_db_connection(db_path) as conn:
+        target = conn.execute(
+            "SELECT id, username, role FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not target:
+            return False, "User not found."
+
+        if target["role"] == "admin":
+            admin_count = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin'"
+            ).fetchone()[0]
+            if admin_count <= 1:
+                return False, "Cannot delete the last admin account."
+
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return True, f"User '{target['username']}' deleted."
+
+
 def login_required(view_func):
     """Redirect unauthenticated visitors to the login page."""
 

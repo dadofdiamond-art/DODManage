@@ -6,6 +6,7 @@ import base64
 import io
 import mimetypes
 import os
+import re
 from typing import Any
 
 import qrcode
@@ -46,6 +47,34 @@ def file_to_data_uri(file_path: str) -> str | None:
     return f"data:{mime_type};base64,{encoded}"
 
 
+def _compute_stone_totals(stones: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compute total stone count and total carat weight for a stone list."""
+    total_qty = 0
+    has_any_qty = False
+    total_carat = 0.0
+    for stone in stones:
+        qty_raw = str(stone.get("quantity") or "").strip()
+        qty_match = re.search(r"\d+", qty_raw)
+        if qty_match:
+            has_any_qty = True
+            total_qty += max(0, int(qty_match.group(0)))
+
+        carat_raw = str(stone.get("carat_weight") or "").strip()
+        carat_match = re.search(r"\d+(?:\.\d+)?", carat_raw)
+        if carat_match:
+            total_carat += float(carat_match.group(0))
+
+    if total_carat > 0:
+        carat_str = f"{total_carat:.3f}".rstrip("0").rstrip(".") + " ct"
+    else:
+        carat_str = "—"
+
+    return {
+        "total_qty": total_qty if has_any_qty else "—",
+        "total_carat": carat_str,
+    }
+
+
 def build_workshop_context(workshop_order: dict[str, Any]) -> dict[str, Any]:
     """Build sanitized template context strictly free of customer PII."""
     item = workshop_order.get("item") or {}
@@ -79,34 +108,71 @@ def build_workshop_context(workshop_order: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    stones = item.get("stone_details") or []
+    center_stones = [
+        s for s in stones if (s.get("stone_category") or "Center Stone") != "Side Stone"
+    ]
+    side_stones = [s for s in stones if s.get("stone_category") == "Side Stone"]
+    igi_certificates = [
+        str(s.get("igi_certificate") or "").strip()
+        for s in stones
+        if str(s.get("igi_certificate") or "").strip()
+    ]
+
     return {
         "brand_name": "Dad Of Diamond",
         "order_id": workshop_order.get("order_id", ""),
         "product_sku": workshop_order.get("product_sku", "") or item.get("product_sku", ""),
         "customer_name": workshop_order.get("customer_name", ""),
+        "mobile_number": workshop_order.get("mobile_number") or "",
+        "email": workshop_order.get("email") or "",
+        "living_address": workshop_order.get("living_address") or "",
         "dispatch_date": workshop_order.get("dispatch_date", ""),
+        "order_placing_date": workshop_order.get("order_placing_date", "") or "",
+        "factory_receiving_date": workshop_order.get("factory_receiving_date", "") or "",
         "product_type": item.get("product_type", ""),
         "quantity": item.get("quantity", 1),
         "metal_option": item.get("metal_option", ""),
         "metal_tone": item.get("metal_tone", ""),
+        "band_tone": item.get("band_tone") or "",
+        "prong_tone": item.get("prong_tone") or "",
+        "basket_tone": item.get("basket_tone") or "",
+        "cad_image_no": item.get("cad_image_no") or "",
         "size_or_closure": item.get("size_or_closure", ""),
         "engraving": item.get("engraving") or "",
+        "side_engraving": item.get("side_engraving") or "",
         "special_requirements": item.get("special_requirements") or "",
-        "stones": item.get("stone_details") or [],
+        "stones": stones,
+        "center_stones": center_stones,
+        "side_stones": side_stones,
+        "center_totals": _compute_stone_totals(center_stones),
+        "side_totals": _compute_stone_totals(side_stones),
+        "igi_certificates": igi_certificates,
         "images": images_ctx,
         "videos": videos_ctx,
     }
 
 
-def render_workshop_html(workshop_order: dict[str, Any]) -> str:
-    """Render the workshop/karigar job sheet HTML string without any customer PII."""
+def render_workshop_html(workshop_order: dict[str, Any], pdf_type: str = "our") -> str:
+    """Render either the full 'our' PDF HTML or the workshop-only 'work' PDF HTML."""
     env = Environment(
         loader=FileSystemLoader(TEMPLATES_DIR),
         autoescape=select_autoescape(["html", "xml"]),
     )
-    template = env.get_template("pdf_template.html")
+    template_name = "workpdf_template.html" if pdf_type == "work" else "pdf_template.html"
+    template = env.get_template(template_name)
     context = build_workshop_context(workshop_order)
     return template.render(**context)
+
+
+def render_workpdf_html(workshop_order: dict[str, Any]) -> str:
+    """Render the workshop-only 'workpdf' HTML string."""
+    return render_workshop_html(workshop_order, pdf_type="work")
+
+
+def render_ourpdf_html(full_order: dict[str, Any]) -> str:
+    """Render the full internal 'ourpdf' HTML string with every entered detail."""
+    return render_workshop_html(full_order, pdf_type="our")
 
 
 def _launch_chromium(playwright: Any):
@@ -127,17 +193,24 @@ def _launch_chromium(playwright: Any):
     ) from last_error
 
 
+def get_pdf_filename(order_id: str, pdf_type: str = "work") -> str:
+    """Return the canonical PDF filename for 'work' or 'our' PDF."""
+    safe_order_id = "".join(c for c in order_id if c.isalnum() or c in ("-", "_"))
+    suffix = "workpdf" if pdf_type == "work" else "ourpdf"
+    return f"{safe_order_id}_{suffix}.pdf"
+
+
 def generate_order_pdf(
     workshop_order: dict[str, Any],
     output_dir: str | None = None,
+    pdf_type: str = "work",
 ) -> str:
-    """Render workshop_order to an A4 PDF file in output_dir and return the file path."""
+    """Render order to an A4 PDF file ('work' or 'our') in output_dir and return the file path."""
     target_dir = output_dir or os.environ.get("DOD_PDF_DIR", DEFAULT_PDF_DIR)
     os.makedirs(target_dir, exist_ok=True)
-    safe_order_id = "".join(c for c in workshop_order["order_id"] if c.isalnum() or c in ("-", "_"))
-    pdf_path = os.path.join(target_dir, f"{safe_order_id}DOD.pdf")
+    pdf_path = os.path.join(target_dir, get_pdf_filename(workshop_order["order_id"], pdf_type=pdf_type))
 
-    html_content = render_workshop_html(workshop_order)
+    html_content = render_workshop_html(workshop_order, pdf_type=pdf_type)
 
     with sync_playwright() as p:
         browser = _launch_chromium(p)
@@ -154,3 +227,41 @@ def generate_order_pdf(
             browser.close()
 
     return pdf_path
+
+
+def generate_both_order_pdfs(
+    order_data: dict[str, Any],
+    output_dir: str | None = None,
+) -> dict[str, str]:
+    """Generate both workpdf and ourpdf for an order in one browser session."""
+    target_dir = output_dir or os.environ.get("DOD_PDF_DIR", DEFAULT_PDF_DIR)
+    os.makedirs(target_dir, exist_ok=True)
+
+    workpdf_path = os.path.join(target_dir, get_pdf_filename(order_data["order_id"], pdf_type="work"))
+    ourpdf_path = os.path.join(target_dir, get_pdf_filename(order_data["order_id"], pdf_type="our"))
+
+    work_html = render_workpdf_html(order_data)
+    our_html = render_ourpdf_html(order_data)
+
+    with sync_playwright() as p:
+        browser = _launch_chromium(p)
+        try:
+            page = browser.new_page()
+            page.set_content(work_html, wait_until="load")
+            page.pdf(
+                path=workpdf_path,
+                format="A4",
+                print_background=True,
+                margin={"top": "12mm", "right": "12mm", "bottom": "12mm", "left": "12mm"},
+            )
+            page.set_content(our_html, wait_until="load")
+            page.pdf(
+                path=ourpdf_path,
+                format="A4",
+                print_background=True,
+                margin={"top": "12mm", "right": "12mm", "bottom": "12mm", "left": "12mm"},
+            )
+        finally:
+            browser.close()
+
+    return {"workpdf_path": workpdf_path, "ourpdf_path": ourpdf_path}
